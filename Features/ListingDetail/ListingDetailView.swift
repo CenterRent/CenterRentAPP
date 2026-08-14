@@ -889,7 +889,7 @@ struct ListingDetailView: View {
                     size: .large,
                     isFullWidth: false
                 ) {
-                    router.navigate(to: .booking(listingId: listing.id))
+                    router.present(.booking(listing: listing))
                 }
             }
             .padding(.horizontal, CRSpacing.screenHorizontal)

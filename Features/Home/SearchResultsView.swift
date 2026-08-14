@@ -111,7 +111,7 @@ struct SearchResultsView: View {
                                 CRListingCard(
                                     listing: listing,
                                     onFavorite: { vm.toggleFavorite(listing) },
-                                    onRent: { router.navigate(to: .booking(listingId: listing.id)); dismiss() }
+                                    onRent: { router.present(.booking(listing: listing)); dismiss() }
                                 )
                                 .onTapGesture {
                                     router.navigate(to: .listingDetail(listingId: listing.id)); dismiss()

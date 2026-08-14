@@ -19,7 +19,6 @@ public enum AppDestination: Hashable {
     case listingDetail(listingId: String)
     case categoryDetail(categoryId: String)
     case search
-    case booking(listingId: String)
     case createListing
 
     // Chat & Communication

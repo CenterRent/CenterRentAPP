@@ -71,7 +71,7 @@ struct CategoryDetailView: View {
                             CRListingCard(
                                 listing: listing,
                                 onFavorite: { homeVM.toggleFavorite(listing) },
-                                onRent: { router.navigate(to: .booking(listingId: listing.id)) }
+                                onRent: { router.present(.booking(listing: listing)) }
                             )
                             .onTapGesture { router.navigate(to: .listingDetail(listingId: listing.id)) }
                         }
