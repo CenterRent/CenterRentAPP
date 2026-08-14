@@ -177,6 +177,13 @@ struct ReviewView: View {
             _ = try await SupabaseManager.shared.createReview(review)
             HapticFeedback.success()
             withAnimation(CRAnimation.springNormal) { submitted = true }
+            try? await SupabaseManager.shared.createNotification(
+                userId: booking.ownerId,
+                title: "Nova avaliação recebida",
+                body: "Seu anúncio recebeu uma avaliação de \(rating) estrela\(rating == 1 ? "" : "s").",
+                type: .reviewReceived,
+                referenceId: booking.listingId
+            )
         } catch {
             errorMessage = "Não foi possível publicar sua avaliação. Tente novamente."
             HapticFeedback.error()

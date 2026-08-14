@@ -415,6 +415,16 @@ struct BookingRequestDetailView: View {
             current.status = status
             booking = current
             HapticFeedback.success()
+            let notifType: AppNotification.NotificationType = status == .accepted ? .bookingAccepted : .bookingDeclined
+            try? await SupabaseManager.shared.createNotification(
+                userId: current.renterId,
+                title: status == .accepted ? "Reserva aceita!" : "Reserva recusada",
+                body: status == .accepted
+                    ? "O anunciante aceitou sua solicitação de reserva."
+                    : "O anunciante não pôde aceitar sua solicitação de reserva.",
+                type: notifType,
+                referenceId: current.id
+            )
         } catch {
             actionError = "Não foi possível atualizar a reserva. Tente novamente."
             HapticFeedback.error()
@@ -483,6 +493,13 @@ final class BookingRequestViewModel: ObservableObject {
             _ = try await SupabaseManager.shared.createBooking(booking)
             HapticFeedback.success()
             showSuccess = true
+            try? await SupabaseManager.shared.createNotification(
+                userId: listing.ownerId,
+                title: "Nova solicitação de reserva",
+                body: "Você recebeu uma solicitação para \"\(listing.title)\".",
+                type: .bookingRequest,
+                referenceId: booking.id
+            )
         } catch {
             errorMessage = error.localizedDescription
             HapticFeedback.error()

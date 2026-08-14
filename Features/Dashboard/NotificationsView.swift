@@ -135,22 +135,27 @@ final class NotificationsViewModel: ObservableObject {
         }
     }
 
+    private var userId: String = ""
+
     func load(userId: String) async {
+        self.userId = userId
+        guard !userId.isEmpty else { notifications = []; return }
         isLoading = true; defer { isLoading = false }
-        // notifications = try? await supabase.fetchNotifications(userId)
-        // Seed data for development
-        notifications = []
+        notifications = (try? await SupabaseManager.shared.fetchNotifications(userId: userId)) ?? []
     }
 
     func markRead(_ id: String) {
-        if let i = notifications.firstIndex(where: { $0.id == id }) {
-            notifications[i].isRead = true
-        }
+        guard let i = notifications.firstIndex(where: { $0.id == id }), !notifications[i].isRead else { return }
+        notifications[i].isRead = true
+        Task { try? await SupabaseManager.shared.markNotificationRead(id: id) }
     }
 
     func markAllRead() {
         notifications = notifications.map {
             var n = $0; n.isRead = true; return n
         }
+        let userId = self.userId
+        guard !userId.isEmpty else { return }
+        Task { try? await SupabaseManager.shared.markAllNotificationsRead(userId: userId) }
     }
 }

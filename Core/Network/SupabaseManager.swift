@@ -712,12 +712,23 @@ extension SupabaseManager {
             .execute()
             .value
 
-        // Best-effort: atualiza o preview da conversa — não bloqueia o envio se falhar.
+        // Best-effort: atualiza o preview da conversa e notifica o destinatário
+        // — nenhum dos dois deve bloquear o envio da mensagem se falhar.
         struct ConvPatch: Encodable { let last_message: String; let last_message_at: Date }
         _ = try? await client.from(Table.conversations)
             .update(ConvPatch(last_message: message.content, last_message_at: Date()))
             .eq("id", value: message.conversationId)
             .execute()
+
+        if let convo = try? await client.from(Table.conversations)
+            .select("*").eq("id", value: message.conversationId).single().execute().value as ConversationRow {
+            let recipientId = convo.renter_id == message.senderId ? convo.owner_id : convo.renter_id
+            try? await createNotification(
+                userId: recipientId, title: "Nova mensagem",
+                body: String(message.content.prefix(120)),
+                type: .newMessage, referenceId: message.conversationId
+            )
+        }
 
         return row.toChatMessage()
     }
@@ -795,5 +806,75 @@ extension SupabaseManager {
             .execute()
             .value
         return rows.map { $0.toReferral() }
+    }
+}
+
+// MARK: - Notification Methods
+extension SupabaseManager {
+    private struct NotificationRow: Decodable {
+        let id: String
+        let user_id: String
+        let title: String
+        let body: String?
+        let type: String?
+        let is_read: Bool?
+        let deep_link: String?
+        let created_at: Date?
+
+        func toNotification() -> AppNotification {
+            AppNotification(
+                id: id, userId: user_id, title: title, body: body ?? "",
+                type: AppNotification.NotificationType(rawValue: type ?? "") ?? .system,
+                referenceId: deep_link, isRead: is_read ?? false,
+                createdAt: created_at ?? Date()
+            )
+        }
+    }
+
+    func fetchNotifications(userId: String) async throws -> [AppNotification] {
+        let rows: [NotificationRow] = try await client.from(Table.notifications)
+            .select("*")
+            .eq("user_id", value: userId)
+            .order("created_at", ascending: false)
+            .limit(50)
+            .execute()
+            .value
+        return rows.map { $0.toNotification() }
+    }
+
+    func markNotificationRead(id: String) async throws {
+        struct Patch: Encodable { let is_read: Bool }
+        try await client.from(Table.notifications)
+            .update(Patch(is_read: true))
+            .eq("id", value: id)
+            .execute()
+    }
+
+    func markAllNotificationsRead(userId: String) async throws {
+        struct Patch: Encodable { let is_read: Bool }
+        try await client.from(Table.notifications)
+            .update(Patch(is_read: true))
+            .eq("user_id", value: userId)
+            .execute()
+    }
+
+    /// Cria uma notificação para `userId`. Best-effort por design nos call
+    /// sites (reserva/mensagem/avaliação não devem falhar por causa disso) —
+    /// mas a própria função propaga erro pra quem quiser tratar.
+    func createNotification(
+        userId: String, title: String, body: String,
+        type: AppNotification.NotificationType, referenceId: String? = nil
+    ) async throws {
+        struct Insert: Encodable {
+            let user_id: String
+            let title: String
+            let body: String
+            let type: String
+            let deep_link: String?
+        }
+        try await client.from(Table.notifications)
+            .insert(Insert(user_id: userId, title: title, body: body,
+                            type: type.rawValue, deep_link: referenceId))
+            .execute()
     }
 }
