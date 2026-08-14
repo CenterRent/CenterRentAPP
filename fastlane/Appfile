@@ -1,0 +1,4 @@
+app_identifier("com.giovanni.centerrentv2")
+apple_id(ENV["ASC_APPLE_ID"]) # opcional: seu Apple ID, só necessário para algumas ações legadas
+itc_team_id(ENV["ASC_ITC_TEAM_ID"]) # opcional
+team_id(ENV["ASC_TEAM_ID"]) # Team ID do Apple Developer Program

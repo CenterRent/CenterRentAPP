@@ -1,0 +1,83 @@
+name: deploy
+
+# Dispara manualmente (Actions -> deploy -> Run workflow) ou em tags v*, ex: v1.0.0
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  testflight:
+    name: TestFlight
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    env:
+      APP_IDENTIFIER: com.giovanni.centerrentv2
+      PROVISIONING_PROFILE_NAME: "Center Rent V2 AppStore" # ajuste pro nome real do seu profile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install Fastlane
+        run: gem install fastlane --no-document
+
+      # --- Assinatura: importa certificado de distribuicao + provisioning profile ---
+      # Requer os secrets abaixo, cadastrados em Settings -> Secrets and variables -> Actions:
+      #   CERTIFICATE_P12_BASE64   (certificado .p12 exportado do Keychain, em base64)
+      #   CERTIFICATE_PASSWORD     (senha usada ao exportar o .p12)
+      #   PROVISIONING_PROFILE_BASE64 (arquivo .mobileprovision de distribuicao, em base64)
+      - name: Import signing certificate
+        env:
+          CERTIFICATE_P12_BASE64: ${{ secrets.CERTIFICATE_P12_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PASSWORD=$(uuidgen)
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+
+          echo "$CERTIFICATE_P12_BASE64" | base64 --decode -o "$RUNNER_TEMP/certificate.p12"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          security import "$RUNNER_TEMP/certificate.p12" -P "$CERTIFICATE_PASSWORD" -A \
+            -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
+
+      - name: Install provisioning profile
+        env:
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILE_DIR"
+          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o "$PROFILE_DIR/profile.mobileprovision"
+
+      # --- API Key do App Store Connect ---
+      # Requer os secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_CONTENT (o .p8 em base64)
+      - name: Write App Store Connect API key
+        env:
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: |
+          echo "$ASC_KEY_CONTENT" | base64 --decode -o "$RUNNER_TEMP/asc_key.p8"
+          echo "ASC_KEY_FILEPATH=$RUNNER_TEMP/asc_key.p8" >> "$GITHUB_ENV"
+
+      - name: Resolve Swift packages
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project "Center Rent V2.xcodeproj" \
+            -scheme "Center Rent V2"
+
+      - name: Build and upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: fastlane beta
