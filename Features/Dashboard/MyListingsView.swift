@@ -239,7 +239,7 @@ final class MyListingsViewModel: ObservableObject {
         HapticFeedback.impact(.medium)
         let newStatus: Listing.ListingStatus = listing.status == .active ? .paused : .active
         Task {
-            try? await SupabaseClient.shared.updateListingStatus(id: listing.id, status: newStatus)
+            try? await SupabaseManager.shared.updateListingStatus(id: listing.id, status: newStatus)
         }
         if let idx = listings.firstIndex(where: { $0.id == listing.id }) {
             listings[idx].status = newStatus
@@ -248,7 +248,7 @@ final class MyListingsViewModel: ObservableObject {
 
     func delete(_ listing: Listing) {
         HapticFeedback.error()
-        Task { try? await SupabaseClient.shared.deleteListing(id: listing.id) }
+        Task { try? await SupabaseManager.shared.deleteListing(id: listing.id) }
         listings.removeAll { $0.id == listing.id }
     }
 }

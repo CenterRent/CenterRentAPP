@@ -306,7 +306,7 @@ struct BookingRequestDetailView: View {
         .onAppear {
             Task {
                 defer { isLoading = false }
-                booking = try? await SupabaseClient.shared.fetchBooking(id: bookingId)
+                booking = try? await SupabaseManager.shared.fetchBooking(id: bookingId)
             }
         }
     }
@@ -432,7 +432,7 @@ final class BookingRequestViewModel: ObservableObject {
             updatedAt: Date()
         )
         do {
-            _ = try await SupabaseClient.shared.createBooking(booking)
+            _ = try await SupabaseManager.shared.createBooking(booking)
             HapticFeedback.success()
             showSuccess = true
         } catch {

@@ -8,6 +8,7 @@ struct ReviewView: View {
     @State private var comment = ""
     @State private var isLoading = false
     @State private var submitted = false
+    @State private var errorMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -108,6 +109,13 @@ struct ReviewView: View {
                     .onChange(of: comment) { _, newValue in if newValue.count > 500 { comment = String(newValue.prefix(500)) } }
             }
 
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.crCaptionMD)
+                    .foregroundColor(CRColor.Feedback.error)
+                    .multilineTextAlignment(.center)
+            }
+
             CRButton("Publicar avaliação", variant: .primary, size: .lg,
                      icon: "checkmark", isLoading: isLoading, isFullWidth: true) {
                 Task { await submitReview() }
@@ -153,19 +161,26 @@ struct ReviewView: View {
     private func submitReview() async {
         guard rating > 0 else { return }
         isLoading = true; defer { isLoading = false }
+        errorMessage = nil
         let review = Review(
             id: UUID().uuidString,
             authorId: authService.currentUser?.id ?? "",
             targetId: booking.listingId,
+            targetType: "listing",
             bookingId: booking.id,
             rating: rating,
             comment: comment,
             createdAt: Date(),
             isPublic: true
         )
-        _ = try? await SupabaseClient.shared.createReview(review)
-        HapticFeedback.success()
-        withAnimation(CRAnimation.springNormal) { submitted = true }
+        do {
+            _ = try await SupabaseManager.shared.createReview(review)
+            HapticFeedback.success()
+            withAnimation(CRAnimation.springNormal) { submitted = true }
+        } catch {
+            errorMessage = "Não foi possível publicar sua avaliação. Tente novamente."
+            HapticFeedback.error()
+        }
     }
 }
 

@@ -278,7 +278,7 @@ final class ConversationListViewModel: ObservableObject {
 
     func load(userId: String) async {
         isLoading = true; defer { isLoading = false }
-        conversations = (try? await SupabaseClient.shared.fetchConversations(userId: userId)) ?? []
+        conversations = (try? await SupabaseManager.shared.fetchConversations(userId: userId)) ?? []
     }
 }
 
@@ -290,18 +290,27 @@ final class ChatViewModel: ObservableObject {
     @Published var listing: Listing? = nil
     @Published var isLoading = false
 
+    private var conversationId: String = ""
+
     func load(conversationId: String) async {
+        self.conversationId = conversationId
         isLoading = true; defer { isLoading = false }
-        messages = (try? await SupabaseClient.shared.fetchMessages(conversationId: conversationId)) ?? []
-        SupabaseClient.shared.subscribeToConversation(id: conversationId) { [weak self] newMessages in
-            Task { @MainActor in self?.messages.append(contentsOf: newMessages) }
+        messages = (try? await SupabaseManager.shared.fetchMessages(conversationId: conversationId)) ?? []
+        SupabaseManager.shared.subscribeToConversation(id: conversationId) { [weak self] newMessages in
+            Task { @MainActor in
+                guard let self else { return }
+                // Evita duplicar mensagens que o próprio envio já otimisticamente adicionou.
+                let newOnes = newMessages.filter { new in !self.messages.contains { $0.id == new.id } }
+                self.messages.append(contentsOf: newOnes)
+            }
         }
     }
 
     func send(text: String, senderId: String) async {
+        guard !conversationId.isEmpty else { return }
         let msg = ChatMessage(
             id: UUID().uuidString,
-            conversationId: "",
+            conversationId: conversationId,
             senderId: senderId,
             content: text,
             type: .text,
@@ -309,8 +318,10 @@ final class ChatViewModel: ObservableObject {
             createdAt: Date()
         )
         messages.append(msg)
-        if let sent = try? await SupabaseClient.shared.sendMessage(msg) {
+        if let sent = try? await SupabaseManager.shared.sendMessage(msg) {
             if let i = messages.firstIndex(where: { $0.id == msg.id }) { messages[i] = sent }
+        } else if let i = messages.firstIndex(where: { $0.id == msg.id }) {
+            messages[i].status = .failed
         }
     }
 }

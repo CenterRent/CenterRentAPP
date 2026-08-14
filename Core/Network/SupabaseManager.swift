@@ -424,6 +424,20 @@ extension SupabaseManager {
             .eq("id", value: listingId)
             .execute()
     }
+
+    /// Pausa, reativa ou soft-deleta um listing (apenas troca a coluna `status`).
+    func updateListingStatus(id: String, status: Listing.ListingStatus) async throws {
+        struct Patch: Encodable { let status: String }
+        try await client.from(Table.listings)
+            .update(Patch(status: status.rawValue))
+            .eq("id", value: id)
+            .execute()
+    }
+
+    /// Soft delete — marca como `deleted`, não remove a linha (mantém histórico de reservas).
+    func deleteListing(id: String) async throws {
+        try await updateListingStatus(id: id, status: .deleted)
+    }
 }
 
 // MARK: - Amenity Methods
@@ -473,5 +487,313 @@ extension SupabaseManager {
             .order("created_at", ascending: false)
             .execute()
             .value
+    }
+}
+
+// MARK: - Booking Row (decodifica colunas snake_case do banco → Booking)
+// NOTA: mapeado a partir de supabase_migration.sql (não confirmado ao vivo —
+// reconecte o projeto Center Rent no conector MCP do Supabase pra validar).
+// bookings.notes na tabela chama-se `renter_notes`.
+private struct BookingRow: Decodable {
+    let id: String
+    let listing_id: String
+    let renter_id: String
+    let owner_id: String
+    let start_date: Date
+    let end_date: Date
+    let total_hours: Double?
+    let total_amount: Double
+    let platform_fee: Double?
+    let status: String
+    let renter_notes: String?
+    let created_at: Date?
+    let updated_at: Date?
+
+    func toBooking() -> Booking {
+        Booking(
+            id: id, listingId: listing_id, renterId: renter_id, ownerId: owner_id,
+            startDate: start_date, endDate: end_date,
+            totalHours: total_hours ?? 0, totalAmount: total_amount,
+            platformFee: platform_fee ?? 0,
+            status: Booking.BookingStatus(rawValue: status) ?? .pending,
+            notes: renter_notes,
+            createdAt: created_at ?? Date(), updatedAt: updated_at ?? Date()
+        )
+    }
+}
+
+// MARK: - Booking Detail Methods (create / fetch by id / aceitar-recusar)
+extension SupabaseManager {
+
+    /// Cria a reserva do fluxo simples por hora (BookingRequestView).
+    func createBooking(_ booking: Booking) async throws -> Booking {
+        struct Payload: Encodable {
+            let id: String
+            let listing_id: String
+            let renter_id: String
+            let owner_id: String
+            let start_date: Date
+            let end_date: Date
+            let total_hours: Double
+            let total_amount: Double
+            let platform_fee: Double
+            let status: String
+            let renter_notes: String?
+        }
+        let payload = Payload(
+            id: booking.id, listing_id: booking.listingId,
+            renter_id: booking.renterId, owner_id: booking.ownerId,
+            start_date: booking.startDate, end_date: booking.endDate,
+            total_hours: booking.totalHours, total_amount: booking.totalAmount,
+            platform_fee: booking.platformFee, status: booking.status.rawValue,
+            renter_notes: booking.notes
+        )
+        let row: BookingRow = try await client.from(Table.bookings)
+            .insert(payload)
+            .select()
+            .single()
+            .execute()
+            .value
+        return row.toBooking()
+    }
+
+    /// Busca uma reserva específica (tela de detalhe / aceitar-recusar).
+    func fetchBooking(id: String) async throws -> Booking {
+        let row: BookingRow = try await client.from(Table.bookings)
+            .select("*")
+            .eq("id", value: id)
+            .single()
+            .execute()
+            .value
+        return row.toBooking()
+    }
+
+    /// Aceita, recusa ou muda o status de uma reserva.
+    /// IMPORTANTE: 'accepted' e 'declined' precisam estar liberados na CHECK
+    /// constraint de bookings.status no banco — ver migrations/sprint0_booking_status.sql.
+    func updateBookingStatus(id: String, status: Booking.BookingStatus) async throws {
+        struct Patch: Encodable { let status: String }
+        try await client.from(Table.bookings)
+            .update(Patch(status: status.rawValue))
+            .eq("id", value: id)
+            .execute()
+    }
+}
+
+// MARK: - Chat / Messaging Methods
+// NOTA: schema de `conversations`/`messages` mapeado a partir de
+// supabase_migration.sql — mais simples que o modelo Swift (sem type/status/
+// attachment por mensagem). Campos ausentes no banco são aproximados em Swift.
+extension SupabaseManager {
+
+    private struct ConversationRow: Decodable {
+        let id: String
+        let listing_id: String?
+        let renter_id: String
+        let owner_id: String
+        let last_message: String?
+        let last_message_at: Date?
+        let created_at: Date?
+    }
+
+    private struct MessageRow: Decodable {
+        let id: String
+        let conversation_id: String
+        let sender_id: String
+        let content: String
+        let is_read: Bool?
+        let created_at: Date?
+
+        func toChatMessage() -> ChatMessage {
+            ChatMessage(
+                id: id, conversationId: conversation_id, senderId: sender_id,
+                content: content, type: .text,
+                status: (is_read ?? false) ? .read : .sent,
+                createdAt: created_at ?? Date(), readAt: nil, attachmentURL: nil
+            )
+        }
+    }
+
+    /// Busca a conversa existente entre locatário e anunciante pra esse anúncio,
+    /// ou cria uma nova. Chamado ao tocar em "Enviar mensagem" na PDP.
+    func getOrCreateConversation(listingId: String, renterId: String, ownerId: String) async throws -> String {
+        let existing: [ConversationRow] = try await client.from(Table.conversations)
+            .select("*")
+            .eq("listing_id", value: listingId)
+            .eq("renter_id", value: renterId)
+            .eq("owner_id", value: ownerId)
+            .limit(1)
+            .execute()
+            .value
+        if let found = existing.first { return found.id }
+
+        struct Insert: Encodable {
+            let listing_id: String
+            let renter_id: String
+            let owner_id: String
+        }
+        struct InsertResponse: Decodable { let id: String }
+        let created: InsertResponse = try await client.from(Table.conversations)
+            .insert(Insert(listing_id: listingId, renter_id: renterId, owner_id: ownerId))
+            .select("id")
+            .single()
+            .execute()
+            .value
+        return created.id
+    }
+
+    func fetchConversations(userId: String) async throws -> [Conversation] {
+        let rows: [ConversationRow] = try await client.from(Table.conversations)
+            .select("*")
+            .or("renter_id.eq.\(userId),owner_id.eq.\(userId)")
+            .order("last_message_at", ascending: false)
+            .execute()
+            .value
+
+        var result: [Conversation] = []
+        for row in rows {
+            let otherUserId = row.renter_id == userId ? row.owner_id : row.renter_id
+            let otherUser = try? await fetchProfile(userId: otherUserId)
+            var listing: Listing? = nil
+            if let lid = row.listing_id {
+                listing = try? await fetchListing(id: lid)
+            }
+            let unread = (try? await unreadMessageCount(conversationId: row.id, excludingSender: userId)) ?? 0
+            let lastMsg: ChatMessage? = row.last_message.map {
+                ChatMessage(id: "", conversationId: row.id, senderId: "", content: $0,
+                            type: .text, status: .sent, createdAt: row.last_message_at ?? Date())
+            }
+            result.append(Conversation(
+                id: row.id,
+                participants: [row.renter_id, row.owner_id],
+                listingId: row.listing_id ?? "",
+                lastMessage: lastMsg,
+                unreadCount: unread,
+                createdAt: row.created_at ?? Date(),
+                updatedAt: row.last_message_at ?? row.created_at ?? Date(),
+                otherUser: otherUser,
+                listing: listing
+            ))
+        }
+        return result
+    }
+
+    private func unreadMessageCount(conversationId: String, excludingSender userId: String) async throws -> Int {
+        let response = try await client.from(Table.messages)
+            .select("id", head: true, count: .exact)
+            .eq("conversation_id", value: conversationId)
+            .eq("is_read", value: false)
+            .neq("sender_id", value: userId)
+            .execute()
+        return response.count ?? 0
+    }
+
+    func fetchMessages(conversationId: String) async throws -> [ChatMessage] {
+        let rows: [MessageRow] = try await client.from(Table.messages)
+            .select("*")
+            .eq("conversation_id", value: conversationId)
+            .order("created_at", ascending: true)
+            .execute()
+            .value
+        return rows.map { $0.toChatMessage() }
+    }
+
+    func sendMessage(_ message: ChatMessage) async throws -> ChatMessage {
+        struct Insert: Encodable {
+            let conversation_id: String
+            let sender_id: String
+            let content: String
+        }
+        let row: MessageRow = try await client.from(Table.messages)
+            .insert(Insert(conversation_id: message.conversationId,
+                            sender_id: message.senderId, content: message.content))
+            .select()
+            .single()
+            .execute()
+            .value
+
+        // Best-effort: atualiza o preview da conversa — não bloqueia o envio se falhar.
+        struct ConvPatch: Encodable { let last_message: String; let last_message_at: Date }
+        _ = try? await client.from(Table.conversations)
+            .update(ConvPatch(last_message: message.content, last_message_at: Date()))
+            .eq("id", value: message.conversationId)
+            .execute()
+
+        return row.toChatMessage()
+    }
+
+    /// Realtime: escuta novas mensagens inseridas nessa conversa.
+    func subscribeToConversation(id: String, handler: @escaping ([ChatMessage]) -> Void) {
+        let channel = client.channel("messages-\(id)")
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        _ = channel.onPostgresChange(
+            InsertAction.self,
+            schema: "public",
+            table: Table.messages,
+            filter: "conversation_id=eq.\(id)"
+        ) { action in
+            guard let row = try? action.decodeRecord(as: MessageRow.self, decoder: decoder) else { return }
+            handler([row.toChatMessage()])
+        }
+        Task { await channel.subscribe() }
+    }
+}
+
+// MARK: - Review Methods
+extension SupabaseManager {
+    /// Cria uma avaliação (hoje: locatário avalia o espaço — targetType "listing").
+    func createReview(_ review: Review) async throws -> Review {
+        struct Insert: Encodable {
+            let id: String
+            let booking_id: String
+            let author_id: String
+            let target_id: String
+            let target_type: String
+            let rating: Int
+            let comment: String
+        }
+        try await client.from(Table.reviews)
+            .insert(Insert(
+                id: review.id, booking_id: review.bookingId, author_id: review.authorId,
+                target_id: review.targetId, target_type: review.targetType,
+                rating: review.rating, comment: review.comment
+            ))
+            .execute()
+        return review
+    }
+}
+
+// MARK: - Referral / MGM Methods
+extension SupabaseManager {
+    private struct ReferralRow: Decodable {
+        let id: String
+        let referrer_id: String
+        let referred_id: String?
+        let referral_code: String
+        let status: String
+        let reward_amount: Double?
+        let created_at: Date?
+
+        func toReferral() -> Referral {
+            Referral(
+                id: id, referrerId: referrer_id, referredUserId: referred_id ?? "",
+                referralCode: referral_code,
+                status: Referral.ReferralStatus(rawValue: status) ?? .pending,
+                rewardType: .credit,
+                rewardValue: reward_amount ?? 0,
+                appliedAt: nil, createdAt: created_at ?? Date()
+            )
+        }
+    }
+
+    func fetchReferrals(userId: String) async throws -> [Referral] {
+        let rows: [ReferralRow] = try await client.from(Table.referrals)
+            .select("*")
+            .eq("referrer_id", value: userId)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+        return rows.map { $0.toReferral() }
     }
 }

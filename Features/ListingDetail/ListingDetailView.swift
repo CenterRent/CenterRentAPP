@@ -16,6 +16,7 @@ struct ListingDetailView: View {
     @State private var showAllAmenities  = false
     @State private var expandDescription = false
     @State private var isFavorited       = false
+    @State private var isStartingChat    = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -780,9 +781,20 @@ struct ListingDetailView: View {
                     "Enviar mensagem ao profissional",
                     variant: .outline,
                     size: .large,
+                    isLoading: isStartingChat,
                     isFullWidth: true
                 ) {
-                    router.navigate(to: .chat(conversationId: owner.id))
+                    guard let renterId = authService.currentUser?.id,
+                          let listingId = vm.listing?.id, !isStartingChat else { return }
+                    isStartingChat = true
+                    Task {
+                        defer { isStartingChat = false }
+                        if let conversationId = try? await SupabaseManager.shared.getOrCreateConversation(
+                            listingId: listingId, renterId: renterId, ownerId: owner.id
+                        ) {
+                            router.navigate(to: .chat(conversationId: conversationId))
+                        }
+                    }
                 }
             }
         }

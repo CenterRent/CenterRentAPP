@@ -250,6 +250,7 @@ public struct Review: Codable, Identifiable {
     public let id: String
     public var authorId: String
     public var targetId: String            // userId ou listingId
+    public var targetType: String = "listing"  // "listing" | "user" — coluna real no Supabase
     public var bookingId: String
     public var rating: Int                 // 1–5
     public var comment: String

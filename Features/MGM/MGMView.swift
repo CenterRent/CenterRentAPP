@@ -243,7 +243,7 @@ final class MGMViewModel: ObservableObject {
     @Published var shareURL: URL? = nil
 
     func load(userId: String) async {
-        referrals = (try? await SupabaseClient.shared.fetchReferrals(userId: userId)) ?? []
+        referrals = (try? await SupabaseManager.shared.fetchReferrals(userId: userId)) ?? []
         totalReferrals = referrals.count
         completedReferrals = referrals.filter { $0.status == .completed || $0.status == .rewarded }.count
         totalCredits = referrals.filter { $0.status == .rewarded }.reduce(0) { $0 + Int($1.rewardValue) }

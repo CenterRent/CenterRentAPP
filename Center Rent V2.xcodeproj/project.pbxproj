@@ -13,7 +13,7 @@
 		AFF128FE034012F02AE30141 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C2A3F0A9A57518F0486DF0E /* AuthService.swift */; };
 		66DA7C32BF8B4A6E76A72EFD /* UIImage+Upload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0754E4D26492A080B7C85FEE /* UIImage+Upload.swift */; };
 		B9E8AE225FB4CEBD0DA4C325 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24931036C03A9CFA9C650B3A /* Models.swift */; };
-		9ACFCBC4FFF92A6F77A2682E /* SupabaseClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 763AC6D93C939E8E2B285DA2 /* SupabaseClient.swift */; };
+		9ACFCBC4FFF92A6F77A2682E /* SupabaseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 763AC6D93C939E8E2B285DA2 /* SupabaseConfig.swift */; };
 		63175B5A7E5516186330385C /* SupabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C09A82AEBB9F22B0A852BC0 /* SupabaseManager.swift */; };
 		A456705BB2F86ABE8310A833 /* CRAvatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 336D4FD37F859E9637F45465 /* CRAvatar.swift */; };
 		74A0CBCC4C2315E64D9197BF /* CRBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B067632356F776629289D961 /* CRBadge.swift */; };
@@ -81,7 +81,7 @@
 		3C2A3F0A9A57518F0486DF0E /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AuthService.swift"; sourceTree = "<group>"; };
 		0754E4D26492A080B7C85FEE /* UIImage+Upload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Upload.swift"; sourceTree = "<group>"; };
 		24931036C03A9CFA9C650B3A /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Models.swift"; sourceTree = "<group>"; };
-		763AC6D93C939E8E2B285DA2 /* SupabaseClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SupabaseClient.swift"; sourceTree = "<group>"; };
+		763AC6D93C939E8E2B285DA2 /* SupabaseConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SupabaseConfig.swift"; sourceTree = "<group>"; };
 		7C09A82AEBB9F22B0A852BC0 /* SupabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SupabaseManager.swift"; sourceTree = "<group>"; };
 		336D4FD37F859E9637F45465 /* CRAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CRAvatar.swift"; sourceTree = "<group>"; };
 		B067632356F776629289D961 /* CRBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CRBadge.swift"; sourceTree = "<group>"; };
@@ -218,7 +218,7 @@
 		58A7C1C28A466D7C1F89767F /* Network */ = {
 			isa = PBXGroup;
 			children = (
-				763AC6D93C939E8E2B285DA2 /* SupabaseClient.swift */,
+				763AC6D93C939E8E2B285DA2 /* SupabaseConfig.swift */,
 				7C09A82AEBB9F22B0A852BC0 /* SupabaseManager.swift */,
 			);
 			path = Network;
@@ -492,7 +492,7 @@
 				AFF128FE034012F02AE30141 /* AuthService.swift in Sources */,
 				66DA7C32BF8B4A6E76A72EFD /* UIImage+Upload.swift in Sources */,
 				B9E8AE225FB4CEBD0DA4C325 /* Models.swift in Sources */,
-				9ACFCBC4FFF92A6F77A2682E /* SupabaseClient.swift in Sources */,
+				9ACFCBC4FFF92A6F77A2682E /* SupabaseConfig.swift in Sources */,
 				63175B5A7E5516186330385C /* SupabaseManager.swift in Sources */,
 				A456705BB2F86ABE8310A833 /* CRAvatar.swift in Sources */,
 				74A0CBCC4C2315E64D9197BF /* CRBadge.swift in Sources */,
