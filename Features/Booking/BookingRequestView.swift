@@ -262,6 +262,9 @@ struct BookingRequestDetailView: View {
     let bookingId: String
     @State private var booking: Booking? = nil
     @State private var isLoading = true
+    @State private var isUpdatingStatus = false
+    @State private var isStartingChat = false
+    @State private var actionError: String?
     @EnvironmentObject var router: AppRouter
     @EnvironmentObject var authService: AuthService
 
@@ -371,10 +374,21 @@ struct BookingRequestDetailView: View {
     private func actionsSection(booking: Booking) -> some View {
         VStack(spacing: CRSpacing.s3) {
             let isOwner = booking.ownerId == authService.currentUser?.id
+            if let actionError {
+                Text(actionError)
+                    .font(.crCaptionMD)
+                    .foregroundColor(CRColor.Feedback.error)
+                    .multilineTextAlignment(.center)
+            }
             if isOwner && booking.status == .pending {
                 CRButton("Aceitar reserva", variant: .primary, size: .lg, icon: "checkmark",
-                         isFullWidth: true) {}
-                CRButton("Recusar", variant: .outline, size: .md, isFullWidth: true) {}
+                         isLoading: isUpdatingStatus, isFullWidth: true) {
+                    Task { await updateStatus(to: .accepted) }
+                }
+                CRButton("Recusar", variant: .outline, size: .md,
+                         isLoading: isUpdatingStatus, isFullWidth: true) {
+                    Task { await updateStatus(to: .declined) }
+                }
             }
             if booking.canReview {
                 CRButton("Avaliar experiência", variant: .primary, size: .lg,
@@ -383,7 +397,41 @@ struct BookingRequestDetailView: View {
                 }
             }
             CRButton("Abrir chat", variant: .ghost, size: .md,
-                     icon: "message", isFullWidth: true) {}
+                     icon: "message", isLoading: isStartingChat, isFullWidth: true) {
+                Task { await openChat(booking: booking) }
+            }
+        }
+    }
+
+    /// Aceita ou recusa a reserva (só o dono do anúncio pode chamar — a UI já
+    /// só mostra os botões pra ele, e a policy de UPDATE no banco reforça isso).
+    private func updateStatus(to status: Booking.BookingStatus) async {
+        guard var current = booking, !isUpdatingStatus else { return }
+        isUpdatingStatus = true
+        actionError = nil
+        defer { isUpdatingStatus = false }
+        do {
+            try await SupabaseManager.shared.updateBookingStatus(id: current.id, status: status)
+            current.status = status
+            booking = current
+            HapticFeedback.success()
+        } catch {
+            actionError = "Não foi possível atualizar a reserva. Tente novamente."
+            HapticFeedback.error()
+        }
+    }
+
+    /// Abre (ou cria) a conversa com a outra parte da reserva.
+    private func openChat(booking: Booking) async {
+        guard let myId = authService.currentUser?.id, !isStartingChat else { return }
+        isStartingChat = true
+        defer { isStartingChat = false }
+        if let conversationId = try? await SupabaseManager.shared.getOrCreateConversation(
+            listingId: booking.listingId, renterId: booking.renterId, ownerId: booking.ownerId
+        ) {
+            router.navigate(to: .chat(conversationId: conversationId))
+        } else {
+            actionError = "Não foi possível abrir o chat agora."
         }
     }
 }
