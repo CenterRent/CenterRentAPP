@@ -203,8 +203,26 @@ extension SupabaseManager {
         try await client.functions.invoke(EdgeFunction.deleteAccount)
     }
 
+    /// Dispara o e-mail de recuperação de senha (via provedor de SMTP configurado
+    /// no painel do Supabase — Authentication > Emails). O link do e-mail volta
+    /// pro app em `centerrent://reset-password`.
     func resetPassword(email: String) async throws {
-        try await auth.resetPasswordForEmail(email)
+        try await auth.resetPasswordForEmail(
+            email,
+            redirectTo: URL(string: "centerrent://reset-password")
+        )
+    }
+
+    /// Troca o deep link de recuperação (`centerrent://reset-password#access_token=...`)
+    /// por uma sessão válida, que permite chamar `updatePassword` em seguida.
+    @discardableResult
+    func establishRecoverySession(from url: URL) async throws -> Session {
+        try await auth.session(from: url)
+    }
+
+    /// Define uma nova senha para o usuário da sessão de recuperação atual.
+    func updatePassword(_ newPassword: String) async throws {
+        _ = try await auth.update(user: UserAttributes(password: newPassword))
     }
 
     func fetchProfile(userId: String) async throws -> UserProfile {

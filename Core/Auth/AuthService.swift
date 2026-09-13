@@ -50,6 +50,8 @@ public protocol AuthServiceProtocol: AnyObject {
     func updateProfile(_ profile: UserProfile) async throws
     func deleteAccount() async throws
     func resetPassword(email: String) async throws
+    func establishRecoverySession(from url: URL) async throws
+    func updatePassword(_ newPassword: String) async throws
 }
 
 // MARK: - AuthService (Supabase implementation)
@@ -174,5 +176,13 @@ public final class AuthService: AuthServiceProtocol, ObservableObject {
     // MARK: - Reset Password
     public func resetPassword(email: String) async throws {
         try await supabase.resetPassword(email: email)
+    }
+
+    public func establishRecoverySession(from url: URL) async throws {
+        try await supabase.establishRecoverySession(from: url)
+    }
+
+    public func updatePassword(_ newPassword: String) async throws {
+        try await supabase.updatePassword(newPassword)
     }
 }

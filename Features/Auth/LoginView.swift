@@ -124,6 +124,7 @@ struct LoginView: View {
                         // ── Forgot password ────────────────────────
                         Button("Esqueceu a senha?") {
                             HapticFeedback.impact(.light)
+                            router.authScreen = .forgotPassword
                         }
                         .font(.crLabel)
                         .foregroundColor(.crPrimary)

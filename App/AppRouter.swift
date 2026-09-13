@@ -8,7 +8,6 @@ public enum AppDestination: Hashable {
     case main
 
     // Authentication/Onboarding
-    case forgotPassword
     case register
     case phoneVerification
     case userType
@@ -69,6 +68,7 @@ public enum AuthScreen: Equatable {
     case splash
     case login
     case register
+    case forgotPassword
 }
 
 // MARK: - AppRouter
@@ -85,6 +85,12 @@ public final class AppRouter: ObservableObject {
 
     /// Guest mode — user skipped auth entirely
     @Published public var isGuest: Bool = false
+
+    /// true enquanto o usuário está no meio do fluxo de "esqueci minha senha"
+    /// (deep link de recuperação já trocou por uma sessão, falta definir a
+    /// nova senha). RootView prioriza mostrar NewPasswordView nesse estado,
+    /// mesmo que authVM.isAuthenticated já esteja true.
+    @Published public var isPasswordRecovery: Bool = false
 
     // MARK: - Guest Navigation
     public func navigateAsGuest() {

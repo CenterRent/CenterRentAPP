@@ -25,7 +25,14 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
-            if authVM.isAuthenticated || router.isGuest {
+            if router.isPasswordRecovery {
+                // Prioridade máxima: usuário veio do link de "esqueci minha senha".
+                // A sessão de recuperação pode deixar authVM.isAuthenticated=true,
+                // mas ele precisa definir a nova senha antes de entrar no app.
+                NewPasswordView()
+                    .transition(.opacity)
+
+            } else if authVM.isAuthenticated || router.isGuest {
                 // ── Autenticado ou visitante → app direto ──────────
                 MainTabView()
                     .transition(.opacity)
@@ -73,6 +80,12 @@ struct RootView: View {
                         insertion: .move(edge: .trailing).combined(with: .opacity),
                         removal:   .move(edge: .trailing).combined(with: .opacity)
                     ))
+            case .forgotPassword:
+                ForgotPasswordView()
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal:   .move(edge: .trailing).combined(with: .opacity)
+                    ))
             }
         }
         .animation(.easeInOut(duration: 0.32), value: router.authScreen)
@@ -96,6 +109,9 @@ struct CenterRentApp: App {
                     setupAppearance()
                     authVM.checkSession()
                 }
+                .onOpenURL { url in
+                    handleIncomingURL(url)
+                }
         }
     }
 
@@ -114,5 +130,30 @@ struct CenterRentApp: App {
 
         // Tab bar — rendered natively by iOS 26 Tab API with Liquid Glass.
         // Do NOT hide it; the system manages the floating glass appearance.
+    }
+
+    // MARK: - Deep Links
+    // centerrent://reset-password#access_token=...&type=recovery&refresh_token=...
+    //   → link do e-mail de "esqueci minha senha" (Supabase Auth)
+    // centerrent://listing/ID, centerrent://booking/ID, etc.
+    //   → repassados pra AppRouter.handleDeepLink (busca/reserva/chat/indicação)
+    private func handleIncomingURL(_ url: URL) {
+        let isRecovery = url.host == "reset-password"
+            || (url.fragment ?? "").contains("type=recovery")
+
+        if isRecovery {
+            Task {
+                do {
+                    try await authService.establishRecoverySession(from: url)
+                    await MainActor.run { router.isPasswordRecovery = true }
+                } catch {
+                    // Link expirado/inválido — manda pro login normal em vez de travar.
+                    await MainActor.run { router.authScreen = .login }
+                }
+            }
+            return
+        }
+
+        router.handleDeepLink(url)
     }
 }

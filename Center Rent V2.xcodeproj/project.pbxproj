@@ -53,6 +53,7 @@
 		85A865CF504F3B9ED16AE10D /* BookingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB1885DC1FFEB1E95100CB33 /* BookingViewModel.swift */; };
 		231D66FE41D497FE9D6B480B /* ProfileViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84B9F25A240F3D99EE110245 /* ProfileViewModel.swift */; };
 		EF75C1B59DBDBB45D9B42462 /* ForgotPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA33888D0D9383153C71314 /* ForgotPasswordView.swift */; };
+		E7AF2E7D985040C8B1C7CC4B /* NewPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1897BDB9D2B474A9D580A23 /* NewPasswordView.swift */; };
 		784A8B601DFF783B7B4F6353 /* InterestSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42B2E3EB83C59DCA3A41A172 /* InterestSelectionView.swift */; };
 		650A6B5EF8EC081FE9FA7CF5 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4F67D625234CB6D664E6A2 /* LoginView.swift */; };
 		417867B7132293894AFCC3EE /* RegisterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D7F1BAD8515082FB65B4A32 /* RegisterView.swift */; };
@@ -121,6 +122,7 @@
 		EB1885DC1FFEB1E95100CB33 /* BookingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BookingViewModel.swift"; sourceTree = "<group>"; };
 		84B9F25A240F3D99EE110245 /* ProfileViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ProfileViewModel.swift"; sourceTree = "<group>"; };
 		7DA33888D0D9383153C71314 /* ForgotPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ForgotPasswordView.swift"; sourceTree = "<group>"; };
+		F1897BDB9D2B474A9D580A23 /* NewPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NewPasswordView.swift"; sourceTree = "<group>"; };
 		42B2E3EB83C59DCA3A41A172 /* InterestSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "InterestSelectionView.swift"; sourceTree = "<group>"; };
 		FF4F67D625234CB6D664E6A2 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LoginView.swift"; sourceTree = "<group>"; };
 		5D7F1BAD8515082FB65B4A32 /* RegisterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RegisterView.swift"; sourceTree = "<group>"; };
@@ -297,6 +299,7 @@
 				D691E2EC09BDEC6E8BF4F679 /* PhoneVerificationView.swift */,
 				5BDA071469EABF7532F77092 /* ProfileSetupView.swift */,
 							7DA33888D0D9383153C71314 /* ForgotPasswordView.swift */,
+				F1897BDB9D2B474A9D580A23 /* NewPasswordView.swift */,
 				42B2E3EB83C59DCA3A41A172 /* InterestSelectionView.swift */,
 				FF4F67D625234CB6D664E6A2 /* LoginView.swift */,
 				5D7F1BAD8515082FB65B4A32 /* RegisterView.swift */,
@@ -532,6 +535,7 @@
 				85A865CF504F3B9ED16AE10D /* BookingViewModel.swift in Sources */,
 				231D66FE41D497FE9D6B480B /* ProfileViewModel.swift in Sources */,
 				EF75C1B59DBDBB45D9B42462 /* ForgotPasswordView.swift in Sources */,
+				E7AF2E7D985040C8B1C7CC4B /* NewPasswordView.swift in Sources */,
 				784A8B601DFF783B7B4F6353 /* InterestSelectionView.swift in Sources */,
 				650A6B5EF8EC081FE9FA7CF5 /* LoginView.swift in Sources */,
 				417867B7132293894AFCC3EE /* RegisterView.swift in Sources */,
