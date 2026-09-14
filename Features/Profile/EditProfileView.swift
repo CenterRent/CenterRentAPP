@@ -19,41 +19,47 @@ struct EditProfileView: View {
 
             ScrollView {
                 VStack(spacing: CRSpacing.xl) {
-                    // Avatar
-                    ZStack(alignment: .bottomTrailing) {
-                        Group {
-                            if let profileImage {
-                                Image(uiImage: profileImage)
-                                    .resizable()
-                                    .scaledToFill()
-                            } else if let urlString = authVM.currentUser?.profileImageURL, let url = URL(string: urlString) {
-                                AsyncImage(url: url) { phase in
-                                    if case .success(let image) = phase {
-                                        image.resizable().scaledToFill()
-                                    } else {
-                                        Circle().fill(Color.crPrimary.opacity(0.2))
-                                            .overlay(Text(String(fullName.prefix(1))).font(.crDisplay2).foregroundColor(.crPrimary))
+                    // Avatar — a área inteira (foto + selo da câmera) é o alvo de
+                    // toque do PhotosPicker, não só o selinho pequeno; selinho
+                    // separado como um item "irmão" no ZStack tinha risco de
+                    // hit-testing perder o toque (foi o que aconteceu ao testar).
+                    PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                        ZStack(alignment: .bottomTrailing) {
+                            Group {
+                                if let profileImage {
+                                    Image(uiImage: profileImage)
+                                        .resizable()
+                                        .scaledToFill()
+                                } else if let urlString = authVM.currentUser?.profileImageURL, let url = URL(string: urlString) {
+                                    AsyncImage(url: url) { phase in
+                                        if case .success(let image) = phase {
+                                            image.resizable().scaledToFill()
+                                        } else {
+                                            Circle().fill(Color.crPrimary.opacity(0.2))
+                                                .overlay(Text(String(fullName.prefix(1))).font(.crDisplay2).foregroundColor(.crPrimary))
+                                        }
                                     }
+                                } else {
+                                    Circle()
+                                        .fill(Color.crPrimary.opacity(0.2))
+                                        .overlay(Text(String(fullName.prefix(1))).font(.crDisplay2).foregroundColor(.crPrimary))
                                 }
-                            } else {
-                                Circle()
-                                    .fill(Color.crPrimary.opacity(0.2))
-                                    .overlay(Text(String(fullName.prefix(1))).font(.crDisplay2).foregroundColor(.crPrimary))
                             }
-                        }
-                        .frame(width: 100, height: 100)
-                        .clipShape(Circle())
+                            .frame(width: 100, height: 100)
+                            .clipShape(Circle())
+                            .contentShape(Circle())
 
-                        PhotosPicker(selection: $selectedPhoto, matching: .images) {
                             Circle().fill(Color.crPrimary).frame(width: 32, height: 32)
                                 .overlay(Image(systemName: "camera.fill").font(.system(size: 14)).foregroundColor(.white))
                         }
-                        .onChange(of: selectedPhoto) { _, item in
-                            Task {
-                                if let data = try? await item?.loadTransferable(type: Data.self),
-                                   let img = UIImage(data: data) {
-                                    profileImage = img
-                                }
+                    }
+                    .buttonStyle(.plain)
+                    .contentShape(Rectangle())
+                    .onChange(of: selectedPhoto) { _, item in
+                        Task {
+                            if let data = try? await item?.loadTransferable(type: Data.self),
+                               let img = UIImage(data: data) {
+                                profileImage = img
                             }
                         }
                     }
