@@ -33,7 +33,16 @@ struct DashboardView: View {
         }
         .navigationTitle("Painel")
         .navigationBarTitleDisplayMode(.large)
-        .onAppear { Task { await vm.load(userId: authService.currentUser?.id ?? "", role: selectedRole) } }
+        .onAppear {
+            // Reflete o tipo de usuário real (profiles.user_type) em vez de
+            // sempre abrir em "Locatário" — só quem é exclusivamente locador
+            // muda o padrão; "both"/renter/nil continuam como antes, já que
+            // esses usuários alternam livremente entre os dois papéis.
+            if authService.currentUser?.userType == .owner {
+                selectedRole = .owner
+            }
+            Task { await vm.load(userId: authService.currentUser?.id ?? "", role: selectedRole) }
+        }
         .onChange(of: selectedRole) { _, role in Task { await vm.load(userId: authService.currentUser?.id ?? "", role: role) } }
     }
 

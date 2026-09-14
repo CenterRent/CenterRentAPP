@@ -2,8 +2,10 @@ import SwiftUI
 
 struct InterestSelectionView: View {
     @EnvironmentObject var authVM: AuthViewModel
-    @EnvironmentObject var router: AppRouter
-    @State private var showLoading = false
+
+    /// Chamado ao confirmar — PostSignupOnboardingView avança para a tela
+    /// de loading, que é quem efetivamente chama completeOnboarding().
+    var onFinished: () -> Void = {}
 
     let allInterests = ["Odontologia","Estética","Fisioterapia","Massoterapia","Pilates","Dermatologia","Nutrição","Psicologia"]
 
@@ -50,23 +52,16 @@ struct InterestSelectionView: View {
                     }
 
                     CRButton(
-                        title: "Criar minha conta",
-                        isLoading: authVM.isLoading,
-                        isFullWidth: true
-                    ) {
-                        Task { await finishOnboarding() }
-                    }
+                        title: "Continuar",
+                        isFullWidth: true,
+                        action: onFinished
+                    )
                     .padding(.horizontal, CRSpacing.xl)
                 }
                 .padding(.bottom, CRSpacing.xxxl)
             }
         }
         .navigationBarHidden(true)
-    }
-
-    private func finishOnboarding() async {
-        await authVM.completeOnboarding()
-        router.popToRoot()
     }
 }
 

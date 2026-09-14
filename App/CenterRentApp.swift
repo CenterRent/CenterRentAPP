@@ -8,7 +8,10 @@ import SwiftUI
 // │    OnboardingFlowView (slides marketing) → SplashView       │
 // │                                            → Login/Cadastro │
 // │                                                             │
-// │  Já autenticado                                             │
+// │  Cadastro recém-concluído (onboardingComplete ainda false)  │
+// │    → PostSignupOnboardingView (tipo de usuário + interesses)│
+// │                                                             │
+// │  Já autenticado (login normal / sessão restaurada)          │
 // │    → MainTabView  (direto, sem onboarding de volta)         │
 // │                                                             │
 // │  Visitante (guest)                                          │
@@ -32,6 +35,14 @@ struct RootView: View {
                 NewPasswordView()
                     .transition(.opacity)
 
+            } else if authVM.isAuthenticated && !authVM.onboardingComplete {
+                // ── Cadastro recém-concluído → escolher tipo de usuário e
+                //    interesses antes de liberar o app (só acontece uma vez;
+                //    login normal/sessão restaurada já chegam com
+                //    onboardingComplete=true e pulam direto pro app) ──────
+                PostSignupOnboardingView()
+                    .transition(.opacity)
+
             } else if authVM.isAuthenticated || router.isGuest {
                 // ── Autenticado ou visitante → app direto ──────────
                 MainTabView()
@@ -53,6 +64,7 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.4), value: authVM.isAuthenticated)
+        .animation(.easeInOut(duration: 0.4), value: authVM.onboardingComplete)
         .animation(.easeInOut(duration: 0.4), value: hasSeenOnboarding)
         .animation(.easeInOut(duration: 0.35), value: router.isGuest)
     }

@@ -199,6 +199,22 @@ extension SupabaseManager {
         try await client.from(Table.profiles).update(profile).eq("id", value: profile.id).execute()
     }
 
+    /// Faz upload da foto de perfil para o bucket `avatars/{userId}.jpg`
+    /// (mesmo padrão de uploadListingImages) e retorna a URL pública.
+    /// Usado por ProfileSetupView (foto no onboarding pós-cadastro).
+    func uploadAvatar(image: UIImage, userId: String) async throws -> String {
+        let resized = image.crResized(maxDimension: 800)
+        guard let data = resized.crCompressed(targetMaxBytes: 2 * 1024 * 1024) else {
+            throw NSError(domain: "Storage", code: 400,
+                          userInfo: [NSLocalizedDescriptionKey: "Não foi possível comprimir a imagem."])
+        }
+        // UUID em lowercase — RLS compara auth.uid()::text (sempre lowercase)
+        let path = "\(userId.lowercased()).jpg"
+        _ = try await storage.upload(path, data: data, options: FileOptions(contentType: "image/jpeg", upsert: true))
+        let publicURL = try storage.getPublicURL(path: path)
+        return publicURL.absoluteString
+    }
+
     func deleteAccount() async throws {
         try await client.functions.invoke(EdgeFunction.deleteAccount)
     }
