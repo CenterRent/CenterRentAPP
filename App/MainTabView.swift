@@ -108,6 +108,8 @@ struct MainTabView: View {
     private func profileDestinationView(for destination: AppDestination) -> some View {
         switch destination {
         case .myListings:             MyListingsView()
+        case .myBookings:             MyBookingsView()
+        case .bookingDetail(let id):  BookingRequestDetailView(bookingId: id)
         case .dashboard:              DashboardView()
         case .mgm:                    MGMView()
         case .notifications:          NotificationsView()
