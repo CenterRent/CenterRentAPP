@@ -352,6 +352,17 @@ extension SupabaseManager {
         return row.toListing()
     }
 
+    /// Busca vários listings de uma vez por ID (ex: título/imagem para cards de reserva).
+    func fetchListings(ids: [String]) async throws -> [Listing] {
+        guard !ids.isEmpty else { return [] }
+        let rows: [ListingRow] = try await client.from(Table.listings)
+            .select("*")
+            .in("id", values: ids)
+            .execute()
+            .value
+        return rows.map { $0.toListing() }
+    }
+
     // MARK: - Create Listing
     /// Insere listing no banco e associa os amenity IDs na junction table.
     /// Retorna o UUID do listing criado.

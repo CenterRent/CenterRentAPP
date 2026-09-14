@@ -6,6 +6,9 @@ final class ProfileViewModel: ObservableObject {
     @Published var profile: UserProfile?
     @Published var myBookings: [Booking] = []
     @Published var myListings: [Listing] = []
+    /// Listing (título, imagens...) de cada reserva em myBookings, por listingId —
+    /// usado pelos cards de MyBookingsView em vez de texto fixo.
+    @Published var bookingListings: [String: Listing] = [:]
     @Published var isLoading = false
     @Published var errorMessage: String?
 
@@ -36,11 +39,36 @@ final class ProfileViewModel: ObservableObject {
         isLoading = true
         do {
             profile = try await supabase.fetchProfile(userId: userId)
-            // myBookings = try await supabase.fetchMyBookings(userId: userId)
         } catch {
             loadMockProfile()
         }
+        await loadMyBookings(userId: userId)
         isLoading = false
+    }
+
+    /// Busca as reservas do usuário como locatário e, em seguida, os listings
+    /// associados (título/imagens) para os cards de MyBookingsView.
+    func loadMyBookings(userId: String) async {
+        do {
+            myBookings = try await supabase.fetchBookings(userId: userId, role: .renter)
+            let listingIds = Array(Set(myBookings.map { $0.listingId }))
+            let listings = try await supabase.fetchListings(ids: listingIds)
+            bookingListings = Dictionary(uniqueKeysWithValues: listings.map { ($0.id, $0) })
+        } catch {
+            errorMessage = "Não foi possível carregar suas reservas."
+        }
+    }
+
+    /// Cancela uma reserva confirmada e atualiza a lista local.
+    func cancelBooking(_ booking: Booking) async {
+        do {
+            try await supabase.updateBookingStatus(id: booking.id, status: .cancelled)
+            if let index = myBookings.firstIndex(where: { $0.id == booking.id }) {
+                myBookings[index].status = .cancelled
+            }
+        } catch {
+            errorMessage = "Não foi possível cancelar a reserva."
+        }
     }
 
     func signOut(authVM: AuthViewModel) async {
