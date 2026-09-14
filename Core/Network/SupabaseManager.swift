@@ -195,8 +195,53 @@ extension SupabaseManager {
         try await client.functions.invoke(EdgeFunction.verifyOTP, options: FunctionInvokeOptions(body: ["phone": phoneNumber, "code": code]))
     }
 
+    /// IMPORTANTE: NÃO passar `profile` direto pro `.update()` -- o
+    /// decoder da SDK do supabase-swift converte snake_case -> camelCase
+    /// automaticamente (é por isso que fetchProfile() funciona sem
+    /// CodingKeys), mas o ENCODER usado por `.update()`/`.insert()` com um
+    /// Encodable genérico NÃO faz o inverso. `UserProfile` direto manda
+    /// chaves tipo "createdAt", "fullName" etc -- o Postgres não reconhece
+    /// e retorna "Could not find the 'createdAt' column..." (visto ao
+    /// vivo). Por isso todo resto do arquivo usa Payload/Patch com nomes
+    /// já em snake_case (ver createBooking, updateListing etc) -- essa é
+    /// a mesma solução, só que pro profile inteiro.
     func updateProfile(_ profile: UserProfile) async throws {
-        try await client.from(Table.profiles).update(profile).eq("id", value: profile.id).execute()
+        struct ProfilePayload: Encodable {
+            let id: String
+            let email: String
+            let full_name: String
+            let specialty: String
+            let registration_number: String
+            let registration_state: String
+            let phone_number: String
+            let phone_verified: Bool
+            let phone_verification_attempts: Int
+            let profile_image_url: String?
+            let verification_status: String
+            let verification_document_url: String?
+            let referral_code: String
+            let referred_by: String?
+            let bio: String?
+            let is_active: Bool
+            let user_type: String?
+        }
+        let payload = ProfilePayload(
+            id: profile.id, email: profile.email, full_name: profile.fullName,
+            specialty: profile.specialty, registration_number: profile.registrationNumber,
+            registration_state: profile.registrationState, phone_number: profile.phoneNumber,
+            phone_verified: profile.phoneVerified,
+            phone_verification_attempts: profile.phoneVerificationAttempts,
+            profile_image_url: profile.profileImageURL,
+            verification_status: profile.verificationStatus.rawValue,
+            verification_document_url: profile.verificationDocumentURL,
+            referral_code: profile.referralCode, referred_by: profile.referredBy,
+            bio: profile.bio, is_active: profile.isActive, user_type: profile.userType?.rawValue
+        )
+        // created_at/updated_at ficam de fora de propósito -- não precisam
+        // ser reescritos numa edição de perfil (created_at é imutável;
+        // updated_at, se o banco não atualizar sozinho, não é crítico
+        // o suficiente pra valer o risco de mandar timestamp errado).
+        try await client.from(Table.profiles).update(payload).eq("id", value: profile.id).execute()
     }
 
     /// Faz upload da foto de perfil para o bucket `avatars/{userId}/avatar.jpg`
