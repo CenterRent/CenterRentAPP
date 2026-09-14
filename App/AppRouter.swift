@@ -30,6 +30,7 @@ public enum AppDestination: Hashable {
 
     // Booking & Reservations
     case bookingDetail(bookingId: String)
+    case myBookings
 
     // Notifications & User
     case notifications

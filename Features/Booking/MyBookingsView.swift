@@ -6,6 +6,8 @@ struct MyBookingsView: View {
     @EnvironmentObject var authVM: AuthViewModel
     @EnvironmentObject var router: AppRouter
 
+    @State private var bookingPendingCancel: Booking?
+
     // Tabs de status usando o Design System
     private let tabs: [CRTabItem] = [
         CRTabItem(title: "Ativos",   icon: "clock",          selectedIcon: "clock.fill"),
@@ -32,7 +34,7 @@ struct MyBookingsView: View {
                 subtitle: nil,
                 showBack: false,
                 trailingItems: [
-                    .init(icon: "bell", badge: 0) { router.navigate(to: .notifications) }
+                    .init(icon: "bell", badge: 0) { router.profilePath.append(AppDestination.notifications) }
                 ]
             )
 
@@ -46,15 +48,25 @@ struct MyBookingsView: View {
             }
 
             // ── Conteúdo ──
-            if vm.filteredBookings.isEmpty {
-                EmptyBookingsView(tab: vm.bookingTab)
+            if vm.isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if vm.filteredBookings.isEmpty {
+                EmptyBookingsView(tab: vm.bookingTab) {
+                    router.switchTab(to: .home)
+                }
             } else {
                 ScrollView {
                     LazyVStack(spacing: CRSpacing.md) {
                         ForEach(vm.filteredBookings) { booking in
-                            MyBookingRowCard(booking: booking) {
-                                // Navegar para detalhe da reserva
-                            }
+                            MyBookingRowCard(
+                                booking: booking,
+                                listing: vm.bookingListings[booking.listingId],
+                                onTap: { router.profilePath.append(AppDestination.bookingDetail(bookingId: booking.id)) },
+                                onCancel: { bookingPendingCancel = booking },
+                                onReview: { router.present(.review(booking: booking)) },
+                                onRebook: { router.profilePath.append(AppDestination.listingDetail(listingId: booking.listingId)) }
+                            )
                         }
                     }
                     .padding(CRSpacing.base)
@@ -69,13 +81,33 @@ struct MyBookingsView: View {
             }
             vm.bookingTab = currentTab
         }
+        .alert("Cancelar reserva?", isPresented: Binding(
+            get: { bookingPendingCancel != nil },
+            set: { if !$0 { bookingPendingCancel = nil } }
+        )) {
+            Button("Voltar", role: .cancel) { bookingPendingCancel = nil }
+            Button("Cancelar reserva", role: .destructive) {
+                if let booking = bookingPendingCancel {
+                    Task {
+                        await vm.cancelBooking(booking)
+                        bookingPendingCancel = nil
+                    }
+                }
+            }
+        } message: {
+            Text("O anfitrião será avisado. Essa ação não pode ser desfeita.")
+        }
     }
 }
 
 // MARK: - Booking Card
 private struct MyBookingRowCard: View {
     let booking: Booking
+    let listing: Listing?
     let onTap: () -> Void
+    let onCancel: () -> Void
+    let onReview: () -> Void
+    let onRebook: () -> Void
 
     var body: some View {
         Button { onTap() } label: {
@@ -93,7 +125,7 @@ private struct MyBookingRowCard: View {
                         )
 
                     HStack {
-                        Text("Reserva" ?? "Reserva")
+                        Text("Reserva")
                             .font(.crLabelSmall)
                             .foregroundColor(.white)
                             .padding(.horizontal, 10).padding(.vertical, 4)
@@ -116,9 +148,10 @@ private struct MyBookingRowCard: View {
 
                 // Conteúdo
                 VStack(alignment: .leading, spacing: CRSpacing.sm) {
-                    Text("Sala profissional")
+                    Text(listing?.title ?? "Espaço")
                         .font(.crH4)
                         .foregroundColor(.crTextPrimary)
+                        .lineLimit(1)
 
                     // Datas
                     HStack(spacing: CRSpacing.xl) {
@@ -151,15 +184,17 @@ private struct MyBookingRowCard: View {
                     // Ações
                     HStack(spacing: CRSpacing.sm) {
                         if booking.status == .confirmed {
-                            CRButton(title: "Cancelar", variant: .outline, size: .small, isFullWidth: true) {}
-                            CRButton(title: "Ver detalhes", size: .small, isFullWidth: true) {}
+                            CRButton(title: "Cancelar", variant: .outline, size: .small, isFullWidth: true, action: onCancel)
+                            CRButton(title: "Ver detalhes", size: .small, isFullWidth: true, action: onTap)
                         } else if booking.status == .completed {
-                            CRButton(title: "Avaliar", variant: .secondary, size: .small, isFullWidth: true) {}
-                            CRButton(title: "Reservar novamente", size: .small, isFullWidth: true) {}
+                            CRButton(title: "Avaliar", variant: .secondary, size: .small, isFullWidth: true, action: onReview)
+                            CRButton(title: "Reservar novamente", size: .small, isFullWidth: true, action: onRebook)
                         } else {
-                            CRButton(title: "Ver detalhes", size: .small, isFullWidth: true) {}
+                            CRButton(title: "Ver detalhes", size: .small, isFullWidth: true, action: onTap)
                         }
                     }
+                    // Botões de ação não devem repropagar o tap do card inteiro
+                    .buttonStyle(.plain)
                 }
                 .padding(CRSpacing.md)
             }
@@ -174,6 +209,7 @@ private struct MyBookingRowCard: View {
 // MARK: - Empty State
 struct EmptyBookingsView: View {
     let tab: ProfileViewModel.BookingTab
+    var onExplore: () -> Void = {}
 
     var body: some View {
         VStack(spacing: CRSpacing.xl) {
@@ -193,7 +229,7 @@ struct EmptyBookingsView: View {
                     .multilineTextAlignment(.center)
             }
 
-            CRButton(title: "Explorar espaços", isFullWidth: false) {}
+            CRButton(title: "Explorar espaços", isFullWidth: false, action: onExplore)
 
             Spacer()
         }

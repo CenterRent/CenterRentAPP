@@ -168,7 +168,7 @@ struct ProfileView: View {
                 router.profilePath.append(AppDestination.myListings)
             }
             ProfileMenuItem(icon: "calendar", label: "Minhas reservas") {
-                router.profilePath.append(AppDestination.dashboard)
+                router.profilePath.append(AppDestination.myBookings)
             }
             ProfileMenuItem(icon: "dollarsign.circle", label: "Financeiro") {
                 router.profilePath.append(AppDestination.dashboard)
