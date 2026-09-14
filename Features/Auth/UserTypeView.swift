@@ -2,7 +2,10 @@ import SwiftUI
 
 struct UserTypeView: View {
     @EnvironmentObject var authVM: AuthViewModel
-    @EnvironmentObject var router: AppRouter
+
+    /// Chamado depois que a escolha é persistida — PostSignupOnboardingView
+    /// avança para a próxima etapa (interesses).
+    var onSelected: () -> Void = {}
 
     var body: some View {
         ZStack {
@@ -51,17 +54,12 @@ struct UserTypeView: View {
             }
         }
         .navigationBarHidden(true)
-        .onChange(of: authVM.selectedUserType) { _, _ in
+        .onChange(of: authVM.selectedUserType) { _, newValue in
+            guard let type = newValue else { return }
+            authVM.markUserTypeDone()
+            Task { await authVM.saveUserType(type) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                // Persiste a escolha — nunca mais perguntará após primeira vez
-                authVM.markUserTypeDone()
-                router.navigate(to: .home)
-            }
-        }
-        .onAppear {
-            // Se o onboarding já está completo, vai direto para o app
-            if authVM.userTypeDone && authVM.onboardingComplete {
-                router.popToRoot()
+                onSelected()
             }
         }
     }

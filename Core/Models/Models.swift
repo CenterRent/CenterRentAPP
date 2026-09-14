@@ -48,6 +48,11 @@ public struct UserProfile: Codable, Identifiable {
     public var createdAt: Date
     public var updatedAt: Date
     public var isActive: Bool
+    /// Escolhido no onboarding pós-cadastro (UserTypeView) e persistido em
+    /// profiles.user_type. nil = ainda não escolheu (usuários antigos, ou
+    /// cadastro em andamento) — nesse caso o app trata como se não tivesse
+    /// preferência definida ainda, sem assumir um valor.
+    public var userType: UserType? = nil
 
     public enum VerificationStatus: String, Codable, CaseIterable {
         case notSubmitted = "not_submitted"
@@ -91,7 +96,8 @@ public struct UserProfile: Codable, Identifiable {
             bio: nil,
             createdAt: Date(),
             updatedAt: Date(),
-            isActive: true
+            isActive: true,
+            userType: nil
         )
     }
 }

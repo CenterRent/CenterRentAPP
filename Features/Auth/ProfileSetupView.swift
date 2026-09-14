@@ -3,7 +3,12 @@ import PhotosUI
 
 // MARK: - Profile Setup (após cadastro)
 struct ProfileSetupView: View {
-    @EnvironmentObject var authService: AuthService
+    @EnvironmentObject var authVM: AuthViewModel
+
+    /// Chamado ao concluir (ou pular) — PostSignupOnboardingView avança
+    /// para a tela de loading final.
+    var onFinished: () -> Void = {}
+
     @State private var step: SetupStep = .basicInfo
     @State private var fullName = ""
     @State private var specialty = ""
@@ -96,6 +101,8 @@ struct ProfileSetupView: View {
                         }
                     }
                 }
+
+                CRButton("Pular por enquanto", variant: .ghost, size: .md, isFullWidth: true, action: onFinished)
             }
             .padding(.horizontal, CRSpacing.screenHorizontal)
             .padding(.bottom, CRSpacing.s10)
@@ -287,8 +294,16 @@ struct ProfileSetupView: View {
 
     private func saveProfile() async {
         isLoading = true
-        // TODO: Salvar perfil no Supabase
-        // try await authService.updateProfile(...)
+        await authVM.saveProfileSetup(
+            fullName: fullName, specialty: specialty,
+            registrationNumber: registrationNumber, registrationState: registrationState,
+            bio: bio, profileImage: profileImage
+        )
+        if let error = authVM.errorMessage {
+            errorMessage = error
+        } else {
+            onFinished()
+        }
         isLoading = false
     }
 }

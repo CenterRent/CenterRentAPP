@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct SetupLoadingView: View {
+    @EnvironmentObject var authVM: AuthViewModel
+
     @State private var progress: Double = 0
     @State private var phase = 0
     @State private var illustrationOpacity: Double = 0
@@ -96,6 +98,10 @@ struct SetupLoadingView: View {
                 illustrationOpacity = 1
                 illustrationOffset = 0
             }
+            // Salva de fato (tipo de usuário + flags) enquanto a animação
+            // termina de tocar — some junto com RootView trocando pra
+            // MainTabView assim que onboardingComplete vira true.
+            Task { await authVM.completeOnboarding() }
         }
     }
 

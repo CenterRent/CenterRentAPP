@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 import Combine
 
 // MARK: - UserDefaults Keys
@@ -123,7 +124,9 @@ final class AuthViewModel: ObservableObject {
             )
             isAuthenticated = true
             currentUser = profile
-            onboardingComplete = true   // evita loop — ProfileSetupView é sheet separada
+            // onboardingComplete fica false aqui de propósito: RootView mostra
+            // PostSignupOnboardingView (tipo de usuário + interesses) antes de
+            // liberar o app. Só vira true em completeOnboarding().
         } catch let err as NSError where err.domain == "Auth" && err.code == 202 {
             // Email confirmation required — show message but don't throw
             errorMessage = err.localizedDescription
@@ -167,9 +170,11 @@ final class AuthViewModel: ObservableObject {
         guard let profile = currentUser else { return }
         isLoading = true
         do {
-            // Update profile with selected type and interests
+            // userType já foi salvo em saveUserType(); aqui só garante que o
+            // perfil local está em dia (ex: se saveUserType falhou por rede).
             try await supabase.updateProfile(profile)
             currentUser = profile
+            AuthService.shared.syncCurrentUser(profile)
         } catch {
             // Mesmo com erro de rede, marca onboarding como feito
             errorMessage = parseError(error)
@@ -178,6 +183,52 @@ final class AuthViewModel: ObservableObject {
         onboardingComplete = true
         userTypeDone = true
         isLoading = false
+    }
+
+    // MARK: - Save User Type
+    /// Persiste o tipo de usuário escolhido (locador/locatário/ambos) no
+    /// perfil real no Supabase — antes ficava só em UserDefaults, sem
+    /// UserProfile ter esse campo. Chamado assim que o usuário toca num
+    /// cartão em UserTypeView.
+    func saveUserType(_ type: UserType) async {
+        selectedUserType = type
+        guard var profile = currentUser else { return }
+        profile.userType = type
+        do {
+            try await supabase.updateProfile(profile)
+            currentUser = profile
+            AuthService.shared.syncCurrentUser(profile)
+        } catch {
+            // Não bloqueia o onboarding por erro de rede — o valor já está
+            // em UserDefaults (selectedUserType) e completeOnboarding()
+            // tenta salvar de novo ao final do fluxo.
+            errorMessage = parseError(error)
+        }
+    }
+
+    // MARK: - Save Profile Setup (onboarding — nome, especialidade, registro, foto)
+    /// Chamado por ProfileSetupView.saveProfile(), etapa opcional do
+    /// onboarding pós-cadastro (o usuário pode ter deixado alguns campos
+    /// em branco — validateCurrentStep() já garante o mínimo obrigatório).
+    func saveProfileSetup(fullName: String, specialty: String, registrationNumber: String,
+                           registrationState: String, bio: String, profileImage: UIImage?) async {
+        errorMessage = nil
+        guard var profile = currentUser else { return }
+        profile.fullName = fullName
+        profile.specialty = specialty
+        profile.registrationNumber = registrationNumber
+        profile.registrationState = registrationState
+        profile.bio = bio.isEmpty ? nil : bio
+        do {
+            if let image = profileImage {
+                profile.profileImageURL = try await supabase.uploadAvatar(image: image, userId: profile.id)
+            }
+            try await supabase.updateProfile(profile)
+            currentUser = profile
+            AuthService.shared.syncCurrentUser(profile)
+        } catch {
+            errorMessage = parseError(error)
+        }
     }
 
     // MARK: - Mark UserType as done (sem chamada de rede)

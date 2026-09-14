@@ -8,11 +8,11 @@ public enum AppDestination: Hashable {
     case main
 
     // Authentication/Onboarding
+    // NOTA: escolha de tipo de usuário + interesses pós-cadastro não usa mais
+    // destinos empurrados aqui — é PostSignupOnboardingView, um mini state
+    // machine local acionado direto por RootView (ver CenterRentApp.swift).
     case register
     case phoneVerification
-    case userType
-    case interests
-    case setup
 
     // Discovery & Listing
     case listingDetail(listingId: String)

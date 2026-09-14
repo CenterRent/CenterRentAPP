@@ -164,6 +164,18 @@ public final class AuthService: AuthServiceProtocol, ObservableObject {
         }
     }
 
+    // MARK: - Local Sync (sem chamada de rede)
+    /// AuthService e AuthViewModel mantêm cada um sua própria cópia de
+    /// `currentUser` (dívida técnica pré-existente — telas como Dashboard/
+    /// Profile/Settings leem daqui, mas cadastro e onboarding rodam por
+    /// AuthViewModel). Usado para refletir aqui uma mudança que outro lugar
+    /// do app já persistiu no Supabase, sem duplicar a chamada de rede.
+    @MainActor
+    public func syncCurrentUser(_ profile: UserProfile) {
+        currentUser = profile
+        authState = .authenticated(profile)
+    }
+
     // MARK: - Delete Account
     public func deleteAccount() async throws {
         try await supabase.deleteAccount()
