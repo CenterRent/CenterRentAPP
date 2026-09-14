@@ -199,9 +199,18 @@ extension SupabaseManager {
         try await client.from(Table.profiles).update(profile).eq("id", value: profile.id).execute()
     }
 
-    /// Faz upload da foto de perfil para o bucket `avatars/{userId}.jpg`
-    /// (mesmo padrão de uploadListingImages) e retorna a URL pública.
-    /// Usado por ProfileSetupView (foto no onboarding pós-cadastro).
+    /// Faz upload da foto de perfil para o bucket `avatars/{userId}/avatar.jpg`
+    /// e retorna a URL pública. Usado por ProfileSetupView (onboarding) e
+    /// EditProfileView.
+    ///
+    /// IMPORTANTE: as policies de RLS já existentes no bucket `avatars`
+    /// (avatars_insert/update/delete, conferido ao vivo no dashboard do
+    /// Supabase) exigem `auth.uid()::text = (storage.foldername(name))[1]`
+    /// -- ou seja, o path PRECISA ter uma pasta nomeada com o UID do
+    /// usuário antes do nome do arquivo. Um path "solto" como
+    /// "{uid}.jpg" (sem pasta) faz storage.foldername(name) retornar
+    /// vazio e a policy nega o upload com "new row violates row-level
+    /// security policy" -- foi exatamente o erro visto ao testar.
     func uploadAvatar(image: UIImage, userId: String) async throws -> String {
         let resized = image.crResized(maxDimension: 800)
         guard let data = resized.crCompressed(targetMaxBytes: 2 * 1024 * 1024) else {
@@ -209,7 +218,7 @@ extension SupabaseManager {
                           userInfo: [NSLocalizedDescriptionKey: "Não foi possível comprimir a imagem."])
         }
         // UUID em lowercase — RLS compara auth.uid()::text (sempre lowercase)
-        let path = "\(userId.lowercased()).jpg"
+        let path = "\(userId.lowercased())/avatar.jpg"
         _ = try await storage.upload(path, data: data, options: FileOptions(contentType: "image/jpeg", upsert: true))
         let publicURL = try storage.getPublicURL(path: path)
         return publicURL.absoluteString
