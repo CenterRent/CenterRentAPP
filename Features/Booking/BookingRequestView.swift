@@ -53,7 +53,11 @@ struct BookingRequestView: View {
             .alert("Reserva enviada!", isPresented: $vm.showSuccess) {
                 Button("Ver minhas reservas") {
                     dismiss()
-                    router.switchTab(to: .myListings)
+                    // .myListings é a aba "Carrinho"/Dashboard, não a lista de
+                    // reservas -- MyBookingsView só é alcançável a partir da
+                    // aba Perfil (ver Sprint 1 / issue #9).
+                    router.switchTab(to: .profile)
+                    router.profilePath.append(AppDestination.myBookings)
                 }
                 Button("OK", role: .cancel) { dismiss() }
             } message: {
