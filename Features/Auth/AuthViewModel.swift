@@ -231,6 +231,31 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Update Basic Profile (EditProfileView)
+    /// Chamado por EditProfileView.save() — diferente de saveProfileSetup
+    /// (onboarding), essa tela não edita especialidade/estado de registro,
+    /// então preserva o que já estava salvo em vez de sobrescrever com
+    /// campos vazios.
+    func updateBasicProfile(fullName: String, phoneNumber: String, registrationNumber: String,
+                             bio: String, profileImage: UIImage?) async {
+        errorMessage = nil
+        guard var profile = currentUser else { return }
+        profile.fullName = fullName
+        profile.phoneNumber = phoneNumber
+        profile.registrationNumber = registrationNumber
+        profile.bio = bio.isEmpty ? nil : bio
+        do {
+            if let image = profileImage {
+                profile.profileImageURL = try await supabase.uploadAvatar(image: image, userId: profile.id)
+            }
+            try await supabase.updateProfile(profile)
+            currentUser = profile
+            AuthService.shared.syncCurrentUser(profile)
+        } catch {
+            errorMessage = parseError(error)
+        }
+    }
+
     // MARK: - Mark UserType as done (sem chamada de rede)
     func markUserTypeDone() {
         userTypeDone = true
