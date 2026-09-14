@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 struct EditProfileView: View {
     @EnvironmentObject var authVM: AuthViewModel
@@ -8,6 +9,9 @@ struct EditProfileView: View {
     @State private var professionalId = ""
     @State private var bio = ""
     @State private var isSaving = false
+    @State private var errorMessage: String? = nil
+    @State private var selectedPhoto: PhotosPickerItem? = nil
+    @State private var profileImage: UIImage? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,15 +21,40 @@ struct EditProfileView: View {
                 VStack(spacing: CRSpacing.xl) {
                     // Avatar
                     ZStack(alignment: .bottomTrailing) {
-                        Circle()
-                            .fill(Color.crPrimary.opacity(0.2))
-                            .frame(width: 100, height: 100)
-                            .overlay(Text(String(fullName.prefix(1))).font(.crDisplay2).foregroundColor(.crPrimary))
-                        Button {
-                            // Photo picker
-                        } label: {
+                        Group {
+                            if let profileImage {
+                                Image(uiImage: profileImage)
+                                    .resizable()
+                                    .scaledToFill()
+                            } else if let urlString = authVM.currentUser?.profileImageURL, let url = URL(string: urlString) {
+                                AsyncImage(url: url) { phase in
+                                    if case .success(let image) = phase {
+                                        image.resizable().scaledToFill()
+                                    } else {
+                                        Circle().fill(Color.crPrimary.opacity(0.2))
+                                            .overlay(Text(String(fullName.prefix(1))).font(.crDisplay2).foregroundColor(.crPrimary))
+                                    }
+                                }
+                            } else {
+                                Circle()
+                                    .fill(Color.crPrimary.opacity(0.2))
+                                    .overlay(Text(String(fullName.prefix(1))).font(.crDisplay2).foregroundColor(.crPrimary))
+                            }
+                        }
+                        .frame(width: 100, height: 100)
+                        .clipShape(Circle())
+
+                        PhotosPicker(selection: $selectedPhoto, matching: .images) {
                             Circle().fill(Color.crPrimary).frame(width: 32, height: 32)
                                 .overlay(Image(systemName: "camera.fill").font(.system(size: 14)).foregroundColor(.white))
+                        }
+                        .onChange(of: selectedPhoto) { _, item in
+                            Task {
+                                if let data = try? await item?.loadTransferable(type: Data.self),
+                                   let img = UIImage(data: data) {
+                                    profileImage = img
+                                }
+                            }
                         }
                     }
                     .padding(.top, CRSpacing.xl)
@@ -46,12 +75,15 @@ struct EditProfileView: View {
                         }
                     }
 
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(.crBodySmall)
+                            .foregroundColor(.crError)
+                            .multilineTextAlignment(.center)
+                    }
+
                     CRButton(title: "Salvar alterações", isLoading: isSaving) {
-                        isSaving = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                            isSaving = false
-                            router.pop()
-                        }
+                        Task { await save() }
                     }
                     .padding(.bottom, CRSpacing.xxxl)
                 }
@@ -65,6 +97,22 @@ struct EditProfileView: View {
             phone = authVM.currentUser?.phoneNumber ?? ""
             professionalId = authVM.currentUser?.registrationNumber ?? ""
             bio = authVM.currentUser?.bio ?? ""
+        }
+    }
+
+    private func save() async {
+        errorMessage = nil
+        isSaving = true
+        await authVM.updateBasicProfile(
+            fullName: fullName, phoneNumber: phone,
+            registrationNumber: professionalId, bio: bio,
+            profileImage: profileImage
+        )
+        isSaving = false
+        if let error = authVM.errorMessage {
+            errorMessage = error
+        } else {
+            router.pop()
         }
     }
 }
