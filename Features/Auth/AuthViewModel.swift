@@ -82,6 +82,11 @@ final class AuthViewModel: ObservableObject {
                     // seja redirecionado para onboarding/auth ao reabrir o app.
                     self.onboardingComplete = true
                     self.userTypeDone = true
+                    // AuthService é quem Profile/Dashboard/Settings/Booking
+                    // leem -- sem isso, ele fica nil a sessão inteira porque
+                    // seu próprio restoreSession() só roda 1x no init, antes
+                    // de qualquer login acontecer por aqui.
+                    AuthService.shared.syncCurrentUser(profile)
                 }
             } catch {
                 await MainActor.run {
@@ -102,6 +107,7 @@ final class AuthViewModel: ObservableObject {
             // evitar que o RootView mostre telas de apresentação após login.
             onboardingComplete = true
             userTypeDone = true
+            AuthService.shared.syncCurrentUser(profile)
         } catch {
             errorMessage = parseError(error)
         }
@@ -124,6 +130,7 @@ final class AuthViewModel: ObservableObject {
             )
             isAuthenticated = true
             currentUser = profile
+            AuthService.shared.syncCurrentUser(profile)
             // onboardingComplete fica false aqui de propósito: RootView mostra
             // PostSignupOnboardingView (tipo de usuário + interesses) antes de
             // liberar o app. Só vira true em completeOnboarding().
@@ -268,7 +275,22 @@ final class AuthViewModel: ObservableObject {
             try await supabase.signOut()
             isAuthenticated = false
             currentUser = nil
+            AuthService.shared.clearCurrentUser()
             // Mantém onboarding/tipo/interesses para próximo login
+        } catch {
+            errorMessage = parseError(error)
+        }
+        isLoading = false
+    }
+
+    // MARK: - Delete Account
+    func deleteAccount() async {
+        isLoading = true
+        do {
+            try await supabase.deleteAccount()
+            isAuthenticated = false
+            currentUser = nil
+            AuthService.shared.clearCurrentUser()
         } catch {
             errorMessage = parseError(error)
         }

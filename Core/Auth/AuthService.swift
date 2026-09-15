@@ -176,6 +176,17 @@ public final class AuthService: AuthServiceProtocol, ObservableObject {
         authState = .authenticated(profile)
     }
 
+    /// Mesma ideia de syncCurrentUser, mas pro caso de logout: AuthViewModel
+    /// é quem controla o gate de RootView (authVM.isAuthenticated), mas
+    /// telas como ProfileView chamavam authService.signOut() direto -- isso
+    /// limpava currentUser aqui, mas authVM.isAuthenticated continuava true,
+    /// então RootView nunca trocava pra tela de login de verdade.
+    @MainActor
+    public func clearCurrentUser() {
+        currentUser = nil
+        authState = .unauthenticated
+    }
+
     // MARK: - Delete Account
     public func deleteAccount() async throws {
         try await supabase.deleteAccount()
