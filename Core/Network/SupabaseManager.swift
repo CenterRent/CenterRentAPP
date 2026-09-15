@@ -13,9 +13,26 @@ final class SupabaseManager {
 
     // MARK: - Client
     // Usa SupabaseConfig como fonte única — URL + anon key estão em SupabaseClient.swift
+    //
+    // IMPORTANTE -- decoder customizado (options: db:): o parser de data
+    // interno do supabase-swift (Sources/Helpers/DateFormatter.swift) só
+    // aceita fração de segundos com EXATAMENTE 3 dígitos (milissegundos) ou
+    // nenhuma. O Postgres manda timestamptz com 6 dígitos (microssegundos,
+    // ex: "2026-06-25T14:46:57.814938+00:00") -- isso fazia decode de
+    // QUALQUER campo Date vindo direto do banco (created_at/updated_at em
+    // profiles, bookings, etc.) falhar silenciosamente, e por causa de
+    // fallbacks tipo `try?`/upsert-de-stub espalhados pelo app, o sintoma
+    // virava "dados sumiram" em vez de um erro visível. Descoberto ao vivo
+    // depois de tirar o fallback de stub de signInWithEmail (ver commit
+    // anterior) e o erro real finalmente aparecer. postgresTimestampDecoder
+    // troca a estratégia de data por um parser que aceita 0, 3 ou 6 dígitos
+    // de fração -- corrige pra todas as tabelas de uma vez.
     let client = Supabase.SupabaseClient(
         supabaseURL: URL(string: SupabaseConfig.projectURL)!,
-        supabaseKey: SupabaseConfig.anonKey
+        supabaseKey: SupabaseConfig.anonKey,
+        options: SupabaseClientOptions(
+            db: .init(decoder: .postgresTimestampDecoder)
+        )
     )
 
     // MARK: - Convenience accessors
