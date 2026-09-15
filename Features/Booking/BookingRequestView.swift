@@ -511,6 +511,16 @@ final class BookingRequestViewModel: ObservableObject {
                 type: .bookingRequest,
                 referenceId: booking.id
             )
+            // Confirmação pro próprio solicitante -- fica registrada no
+            // sininho de notificações, não só no alerta passageiro que some
+            // assim que a tela fecha (reportado: "não deu feedback em tela").
+            try? await SupabaseManager.shared.createNotification(
+                userId: renterId,
+                title: "Solicitação enviada",
+                body: "Sua solicitação para \"\(listing.title)\" foi enviada. Você será avisado quando o anunciante responder.",
+                type: .system,
+                referenceId: booking.id
+            )
         } catch {
             errorMessage = error.localizedDescription
             HapticFeedback.error()
