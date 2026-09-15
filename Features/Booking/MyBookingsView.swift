@@ -52,9 +52,17 @@ struct MyBookingsView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if vm.filteredBookings.isEmpty {
-                EmptyBookingsView(tab: vm.bookingTab) {
-                    router.switchTab(to: .home)
+                // Envolvido num ScrollView (mesmo sem conteúdo que exija
+                // scroll) só pra .refreshable funcionar também no estado
+                // vazio -- reportado que uma reserva recém-criada não
+                // aparecia; puxar pra atualizar dá uma saída imediata.
+                ScrollView {
+                    EmptyBookingsView(tab: vm.bookingTab) {
+                        router.switchTab(to: .home)
+                    }
+                    .frame(minHeight: 500)
                 }
+                .refreshable { await refresh() }
             } else {
                 ScrollView {
                     LazyVStack(spacing: CRSpacing.md) {
@@ -72,13 +80,16 @@ struct MyBookingsView: View {
                     .padding(CRSpacing.base)
                     .padding(.bottom, CRSpacing.xxxl)
                 }
+                .refreshable { await refresh() }
             }
         }
         .background(Color.crBackground)
-        .task {
-            if let userId = authVM.currentUser?.id {
-                await vm.loadProfile(userId: userId)
-            }
+        // .task(id:) -- não .task simples -- pra buscar de novo se
+        // authVM.currentUser?.id ainda estiver nil no primeiro load e só
+        // ficar pronto um instante depois (corrida de timing suspeita, mas
+        // não totalmente confirmada; isso fecha a lacuna de qualquer jeito).
+        .task(id: authVM.currentUser?.id) {
+            await refresh()
             vm.bookingTab = currentTab
         }
         .alert("Cancelar reserva?", isPresented: Binding(
@@ -97,6 +108,11 @@ struct MyBookingsView: View {
         } message: {
             Text("O anfitrião será avisado. Essa ação não pode ser desfeita.")
         }
+    }
+
+    private func refresh() async {
+        guard let userId = authVM.currentUser?.id else { return }
+        await vm.loadProfile(userId: userId)
     }
 }
 

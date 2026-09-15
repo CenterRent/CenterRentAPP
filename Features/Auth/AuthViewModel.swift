@@ -96,6 +96,26 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Refresh Current User (pull-to-refresh)
+    /// Busca o perfil de novo do Supabase e atualiza os dois lados
+    /// (authVM + AuthService). Usado como saída manual em .refreshable —
+    /// se por algum motivo currentUser ficou desatualizado/vazio na tela
+    /// (ex: uma corrida de timing que não reproduzimos ainda), isso força
+    /// buscar de novo sem precisar deslogar/logar ou fechar o app.
+    func refreshCurrentUser() async {
+        guard let userId = currentUser?.id ?? AuthService.shared.currentUser?.id else {
+            checkSession()
+            return
+        }
+        do {
+            let profile = try await supabase.fetchProfile(userId: userId)
+            currentUser = profile
+            AuthService.shared.syncCurrentUser(profile)
+        } catch {
+            errorMessage = parseError(error)
+        }
+    }
+
     // MARK: - Sign In
     func signIn(email: String, password: String) async {
         isLoading = true; errorMessage = nil
