@@ -37,6 +37,13 @@ struct ProfileView: View {
             }
             .padding(.bottom, CRSpacing.s10)
         }
+        .refreshable {
+            // Puxar pra atualizar força buscar o perfil de novo do Supabase --
+            // saída manual pro usuário caso os dados fiquem desatualizados em
+            // tela (ex: acabou de editar em outro lugar, ou uma corrida de
+            // timing no login que ainda não reproduzimos com certeza).
+            await authVM.refreshCurrentUser()
+        }
         .background(CRColor.Background.secondary.ignoresSafeArea())
         .navigationTitle("Meu Perfil")
         .navigationBarTitleDisplayMode(.inline)
@@ -52,6 +59,12 @@ struct ProfileView: View {
         }
         .sheet(isPresented: $showPhoneVerification) {
             PhoneVerificationView(isOnboarding: false)
+        }
+        .task {
+            // Busca fresca toda vez que a aba Perfil aparece -- não depende
+            // só do @EnvironmentObject já estar em dia (reportado ao vivo:
+            // dados salvos não apareciam mesmo logado).
+            await authVM.refreshCurrentUser()
         }
         .alert("Sair da conta?", isPresented: $showSignOutAlert) {
             // authVM (não authService direto) -- é authVM.isAuthenticated que
