@@ -90,21 +90,28 @@ struct BookingRequestView: View {
     }
 
     // MARK: - Date & Time
+    // Início/Fim empilhados (não lado a lado): cada DatePicker(.compact) com
+    // [.date, .hourAndMinute] já renderiza DOIS pills (data + hora) sozinho;
+    // dois desses num HStack só passavam da largura da tela com datas em
+    // português ("14 de set. de 2026") -- cortava a tela inteira nas duas
+    // bordas (visto ao vivo).
     private var dateTimeSection: some View {
         VStack(alignment: .leading, spacing: CRSpacing.s3) {
             Text("Data e horário").font(.crHeading5).foregroundColor(CRColor.Text.primary)
 
-            HStack(spacing: CRSpacing.s3) {
-                VStack(alignment: .leading, spacing: CRSpacing.s2) {
+            VStack(spacing: CRSpacing.s3) {
+                HStack {
                     Text("Início").font(.crLabelSM).foregroundColor(CRColor.Text.secondary)
+                    Spacer()
                     DatePicker("", selection: $vm.startDate, in: Date()..., displayedComponents: [.date, .hourAndMinute])
                         .datePickerStyle(.compact)
                         .labelsHidden()
                         .tint(CRColor.Primary.default)
                 }
-                Divider().frame(height: 40)
-                VStack(alignment: .leading, spacing: CRSpacing.s2) {
+                Divider()
+                HStack {
                     Text("Fim").font(.crLabelSM).foregroundColor(CRColor.Text.secondary)
+                    Spacer()
                     DatePicker("", selection: $vm.endDate, in: vm.startDate..., displayedComponents: [.date, .hourAndMinute])
                         .datePickerStyle(.compact)
                         .labelsHidden()
