@@ -23,11 +23,18 @@ final class ProfileViewModel: ObservableObject {
 
     private let supabase = SupabaseManager.shared
 
+    // NOTA: o único fluxo que existe hoje (BookingRequestDetailView.updateStatus)
+    // só transita pending -> accepted/declined -- nada no app ainda seta
+    // .confirmed/.active (são estados futuros, de quando tiver
+    // agendamento/pagamento de verdade). Antes, "Futuros" só cobria
+    // .confirmed e nenhuma aba cobria .pending -- toda solicitação recém-
+    // criada (sempre nasce .pending) ficava invisível em qualquer aba
+    // (reportado ao vivo: "não aparece nem ativo, nem futuro, nem histórico").
     var filteredBookings: [Booking] {
         switch bookingTab {
         case .active:   return myBookings.filter { $0.status == .active }
-        case .upcoming: return myBookings.filter { $0.status == .confirmed }
-        case .history:  return myBookings.filter { $0.status == .completed || $0.status == .cancelled }
+        case .upcoming: return myBookings.filter { $0.status == .pending || $0.status == .accepted || $0.status == .confirmed }
+        case .history:  return myBookings.filter { $0.status == .completed || $0.status == .cancelled || $0.status == .declined }
         }
     }
 
