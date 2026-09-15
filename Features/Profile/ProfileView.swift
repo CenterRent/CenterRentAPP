@@ -4,6 +4,7 @@ import PhotosUI
 // MARK: - My Profile View
 struct ProfileView: View {
     @EnvironmentObject var authService: AuthService
+    @EnvironmentObject var authVM: AuthViewModel
     @EnvironmentObject var router: AppRouter
     @State private var showEditProfile = false
     @State private var showPhoneVerification = false
@@ -53,12 +54,15 @@ struct ProfileView: View {
             PhoneVerificationView(isOnboarding: false)
         }
         .alert("Sair da conta?", isPresented: $showSignOutAlert) {
-            Button("Sair", role: .destructive) { Task { try? await authService.signOut() } }
+            // authVM (não authService direto) -- é authVM.isAuthenticated que
+            // controla o gate de RootView; chamar só authService.signOut()
+            // limpava o usuário aqui mas deixava o app "logado" mesmo assim.
+            Button("Sair", role: .destructive) { Task { await authVM.signOut() } }
             Button("Cancelar", role: .cancel) {}
         }
         .alert("Excluir conta?", isPresented: $showDeleteAlert) {
             Button("Excluir definitivamente", role: .destructive) {
-                Task { try? await authService.deleteAccount() }
+                Task { await authVM.deleteAccount() }
             }
             Button("Cancelar", role: .cancel) {}
         } message: {
