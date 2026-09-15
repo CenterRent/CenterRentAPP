@@ -4,6 +4,7 @@ import PhotosUI
 struct EditProfileView: View {
     @EnvironmentObject var authVM: AuthViewModel
     @EnvironmentObject var router: AppRouter
+    @Environment(\.dismiss) private var dismiss
     @State private var fullName = ""
     @State private var phone = ""
     @State private var professionalId = ""
@@ -15,7 +16,13 @@ struct EditProfileView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            CRNavigationHeader(title: "Editar Perfil", onBack: { router.pop() })
+            // dismiss(), não router.pop() -- essa tela abre como .sheet
+            // (Features/Profile/ProfileView.swift), não empilhada numa
+            // NavigationStack. router.pop() mexe em router.navigationPath,
+            // que não tem nada a ver com apresentação de sheet -- por isso
+            // nunca fechava, com ou sem sucesso no salvamento (reportado
+            // ao vivo: "não fecha automaticamente o componente").
+            CRNavigationHeader(title: "Editar Perfil", onBack: { dismiss() })
 
             ScrollView {
                 VStack(spacing: CRSpacing.xl) {
@@ -117,8 +124,10 @@ struct EditProfileView: View {
         isSaving = false
         if let error = authVM.errorMessage {
             errorMessage = error
+            HapticFeedback.error()
         } else {
-            router.pop()
+            HapticFeedback.success()
+            dismiss()
         }
     }
 }
