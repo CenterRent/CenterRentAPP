@@ -126,23 +126,40 @@ extension SupabaseManager {
             throw NSError(domain: "Auth", code: 401,
                           userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
-        return try await fetchProfile(userId: user.id.uuidString)
+        do {
+            return try await fetchProfile(userId: user.id.uuidString)
+        } catch {
+            // Mesma tentativa extra de signInWithEmail -- cobre timing/RLS
+            // logo após restaurar a sessão salva (app recém-aberto).
+            try await Task.sleep(nanoseconds: 600_000_000)
+            return try await fetchProfile(userId: user.id.uuidString)
+        }
     }
 
+    /// IMPORTANTE: diferente de signUpWithEmail, aqui NÃO criamos/sobrescrevemos
+    /// com um UserProfile.stub() em caso de falha. Login é sempre de um
+    /// usuário JÁ EXISTENTE — se fetchProfile falhar (timing/RLS logo após
+    /// o signIn, rede instável, etc), a coisa certa é tentar de novo e, se
+    /// persistir, deixar o erro subir. A versão antiga fazia
+    /// upsert(stub, onConflict:"id") no catch -- isso SUBSTITUÍA o perfil
+    /// real (nome/foto/CRO) por um stub em branco sempre que fetchProfile
+    /// desse qualquer erro transitório, e o stub em branco (não o dado
+    /// real) era o que a tela mostrava dali pra frente. Reportado ao vivo:
+    /// "fiz logout, login de novo, meus dados sumiram" -- mesmo com o
+    /// banco correto (confirmado via SQL Editor), porque o upsert as vezes
+    /// falhava silenciosamente (try?) mas o stub em branco ja tinha sido
+    /// retornado e virado currentUser mesmo assim.
     func signInWithEmail(email: String, password: String) async throws -> UserProfile {
         let session = try await auth.signIn(email: email, password: password)
         let userId  = session.user.id.uuidString
-        // Profile might not exist yet if trigger hasn't created it — fall back to stub
         do {
             return try await fetchProfile(userId: userId)
         } catch {
-            // Create a minimal profile so the user can continue into the app
-            let stub = UserProfile.stub(id: userId, email: session.user.email ?? email)
-            _ = try? await client
-                .from(Table.profiles)
-                .upsert(stub, onConflict: "id")
-                .execute()
-            return stub
+            // Uma tentativa extra cobre timing/RLS logo após o signIn --
+            // se persistir, propaga o erro de verdade em vez de mascarar
+            // com dado em branco.
+            try await Task.sleep(nanoseconds: 600_000_000)
+            return try await fetchProfile(userId: userId)
         }
     }
 
