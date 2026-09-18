@@ -436,6 +436,11 @@ struct BookingRequestDetailView: View {
                 type: notifType,
                 referenceId: current.id
             )
+            // E-mail pro solicitante -- aceita vem com sugestão de ativos
+            // complementares, recusada vem com alternativas parecidas (ver
+            // supabase/functions/send-booking-email).
+            let emailType = status == .accepted ? "accepted" : "declined"
+            try? await SupabaseManager.shared.sendBookingEmail(type: emailType, bookingId: current.id)
         } catch {
             actionError = "Não foi possível atualizar a reserva. Tente novamente."
             HapticFeedback.error()
@@ -521,6 +526,10 @@ final class BookingRequestViewModel: ObservableObject {
                 type: .system,
                 referenceId: booking.id
             )
+            // E-mail pros dois lados (estilo Airbnb) -- confirmação pra quem
+            // pediu, aviso com link pro app pra quem vai aprovar. `try?`:
+            // e-mail nunca deve travar o fluxo de reserva em si.
+            try? await SupabaseManager.shared.sendBookingEmail(type: "new_request", bookingId: booking.id)
         } catch {
             errorMessage = error.localizedDescription
             HapticFeedback.error()

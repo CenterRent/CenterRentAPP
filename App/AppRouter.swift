@@ -166,31 +166,45 @@ public final class AppRouter: ObservableObject {
     }
 
     // MARK: - Deep Link Handler
-    // Branch.io ou Firebase Dynamic Links
     // centerrent://listing/ID
     // centerrent://referral/CODE
     // centerrent://booking/ID
+    // centerrent://search
+    //
+    // IMPORTANTE: o "tipo" (listing/booking/referral/chat/search) é o HOST
+    // da URL, não o primeiro componente do path -- pra "centerrent://booking/123",
+    // URLComponents entende "booking" como host e "/123" como path (é o
+    // formato scheme://host/path padrão, mesmo usado por
+    // CenterRentApp.handleIncomingURL pro link de recuperação de senha,
+    // que já lê url.host). A versão antiga lia tudo de components.path
+    // (só "/123", sem o "booking"), então pathComponents nunca tinha os
+    // 2 elementos esperados e o guard sempre falhava -- bug pré-existente
+    // nunca pego porque nenhum link desses tinha sido testado de verdade
+    // ainda (só descoberto construindo os e-mails de reserva, que dependem
+    // do link centerrent://booking/ID abrindo o app na tela certa).
     public func handleDeepLink(_ url: URL) {
-        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true) else { return }
-        let path = components.path
-        let pathComponents = path.split(separator: "/").map(String.init)
-
-        guard pathComponents.count >= 2 else { return }
-        let type  = pathComponents[0]
-        let value = pathComponents[1]
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true),
+              let type = components.host, !type.isEmpty else { return }
+        let value = components.path.split(separator: "/").map(String.init).first
 
         switch type {
         case "listing":
+            guard let value else { return }
             selectedTab = Tab.home.rawValue
             navigate(to: .listingDetail(listingId: value))
         case "referral":
+            guard let value else { return }
             UserDefaults.standard.set(value, forKey: "pendingReferralCode")
             selectedTab = Tab.profile.rawValue
         case "booking":
+            guard let value else { return }
             navigate(to: .bookingDetail(bookingId: value))
         case "chat":
+            guard let value else { return }
             selectedTab = Tab.chat.rawValue
             navigate(to: .chat(conversationId: value))
+        case "search":
+            selectedTab = Tab.search.rawValue
         default:
             break
         }
