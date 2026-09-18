@@ -144,6 +144,22 @@ extension SupabaseManager {
         static let processReferral = "process-referral"
         static let sendNotification = "send-notification"
         static let deleteAccount  = "delete-account"
+        static let sendBookingEmail = "send-booking-email"
+    }
+}
+
+// MARK: - Booking Emails
+extension SupabaseManager {
+    /// Dispara o e-mail correspondente ao evento da reserva (solicitação
+    /// enviada/recebida, aceita, recusada) via Edge Function -- ver
+    /// supabase/functions/send-booking-email/index.ts. Erros ficam só no
+    /// console (`try?` no call site): nunca deve travar o fluxo principal
+    /// de criar/aceitar/recusar reserva por causa de e-mail.
+    func sendBookingEmail(type: String, bookingId: String) async throws {
+        try await client.functions.invoke(
+            EdgeFunction.sendBookingEmail,
+            options: FunctionInvokeOptions(body: ["type": type, "bookingId": bookingId])
+        )
     }
 }
 
