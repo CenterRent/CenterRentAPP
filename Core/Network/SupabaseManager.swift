@@ -27,11 +27,22 @@ final class SupabaseManager {
     // anterior) e o erro real finalmente aparecer. postgresTimestampDecoder
     // troca a estratégia de data por um parser que aceita 0, 3 ou 6 dígitos
     // de fração -- corrige pra todas as tabelas de uma vez.
+    //
+    // auth: também precisa do mesmo decoder -- AuthClient.Configuration
+    // usa exatamente o mesmo parser de data quebrado (mesmo helper
+    // compartilhado na SDK), e a resposta de signIn inclui created_at/
+    // updated_at do usuário (auth.users, timestamptz igual profiles).
+    // Sem isso, login em si já falhava com "Erro: Não foi possível ler os
+    // dados porque eles estão faltando [NSCocoaErrorDomain#4865]" --
+    // reportado ao vivo mesmo após reinstalar o app do zero, confirmando
+    // que não era sessão salva corrompida, era decode falhando de novo a
+    // cada tentativa.
     let client = Supabase.SupabaseClient(
         supabaseURL: URL(string: SupabaseConfig.projectURL)!,
         supabaseKey: SupabaseConfig.anonKey,
         options: SupabaseClientOptions(
-            db: .init(decoder: .postgresTimestampDecoder)
+            db: .init(decoder: .postgresTimestampDecoder),
+            auth: .init(decoder: .postgresTimestampDecoder)
         )
     )
 

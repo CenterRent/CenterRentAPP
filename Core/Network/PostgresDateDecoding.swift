@@ -37,8 +37,16 @@ extension String {
 }
 
 extension JSONDecoder {
+    /// Usado tanto pro client de banco (db:) quanto de autenticação (auth:)
+    /// -- AuthClient.Configuration.jsonDecoder usa o MESMO parser de data
+    /// quebrado (Sources/Helpers/Codable.swift, compartilhado pelos dois),
+    /// e a resposta de login inclui campos tipo created_at/updated_at do
+    /// usuário (vindos de auth.users, timestamptz do Postgres igual
+    /// profiles) -- por isso o erro de login persistia mesmo depois do
+    /// fix em SupabaseManager cobrir só o client de banco.
     static var postgresTimestampDecoder: JSONDecoder {
         let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
         decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let string = try container.decode(String.self)
